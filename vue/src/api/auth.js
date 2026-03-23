@@ -3,8 +3,13 @@ import axios from 'axios'
 // 创建axios实例
 const request = axios.create({
   baseURL: '/api', // API基础URL
-  timeout: 10000, // 请求超时时间
+  timeout: 300000, // 请求超时时间（5分钟）
 })
+
+const TOKEN_EXPIRES_AT_KEY = 'token_expires_at'
+const LAST_ACTIVITY_KEY = 'last_activity_ts'
+export const SESSION_TIMEOUT_MS = 5 * 60 * 1000
+export const REFRESH_THRESHOLD_MS = 60 * 1000
 
 /**
  * 脱敏处理函数，将敏感信息替换为星号
@@ -26,9 +31,20 @@ const maskSensitiveInfo = (str, prefixLength = 4, suffixLength = 4) => {
 // 请求拦截器
 request.interceptors.request.use(
   config => {
+    // 会话超时检查
+    const lastActive = Number(sessionStorage.getItem(LAST_ACTIVITY_KEY) || 0)
+    if (lastActive && Date.now() - lastActive > SESSION_TIMEOUT_MS) {
+      sessionStorage.removeItem('token')
+      localStorage.removeItem('token')
+      sessionStorage.removeItem(TOKEN_EXPIRES_AT_KEY)
+      sessionStorage.removeItem(LAST_ACTIVITY_KEY)
+    }
+    // 记录当前用户操作
+    markUserActivity()
+
     // 获取token，注意不要修改token原始内容
     const token = getToken();
-    
+
     // 调试日志（非生产环境）
     if (process.env.NODE_ENV !== 'production') {
       if (token) {
@@ -43,7 +59,7 @@ request.interceptors.request.use(
         console.log('正在发送请求，无授权信息');
       }
     }
-    
+
     // 添加token到header，确保格式正确
     if (token) {
       // 确保token格式正确，避免重复添加Bearer前缀
@@ -51,11 +67,11 @@ request.interceptors.request.use(
       if (!token.startsWith('Bearer ')) {
         tokenToUse = `Bearer ${token}`;
       }
-      
+
       // 设置授权头
       config.headers['Authorization'] = tokenToUse;
     }
-    
+
     return config;
   },
   error => {
@@ -67,6 +83,17 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   response => {
+    // 将令牌状态信息同步到本地
+    const headers = response.headers || {}
+    const expiresAtHeader = headers['x-token-expires-at'] || headers['X-Token-Expires-At']
+    if (expiresAtHeader) {
+      setTokenExpiresAt(Number(expiresAtHeader))
+    }
+    const remainingHeader = headers['x-token-remaining-seconds'] || headers['X-Token-Remaining-Seconds']
+    if (remainingHeader) {
+      sessionStorage.setItem('token_remaining_seconds', remainingHeader)
+    }
+
     // Conditional logging for RAW server response - can be enabled for deep debugging
     /*
     if (process.env.NODE_ENV !== 'production') {
@@ -101,7 +128,7 @@ request.interceptors.response.use(
       // Reduced verbosity for general API responses, still masked.
       // console.log('API响应数据 (masked for logging):', loggableRes);
     }
-    
+
     // Process the original 'res' object from here on.
     // The 'res' object should NOT have been modified by the logging above.
 
@@ -113,57 +140,59 @@ request.interceptors.response.use(
         // For login, 'res.data' contains the actual payload { token, tokenType, ... }
         // This 'res.data' should be the original, unmodified one.
         if (response.config.url.includes('/auth/login') && res.data.token) {
-          return res.data; 
+          return res.data;
         }
         return res.data;
       }
       return res;
     }
-    
+
     if (res.token) {
       return res;
     }
-    
+
     if (response.config.url.includes('/auth/logout')) {
       return { success: true };
     }
-    
+
     if (response.config.url.includes('/auth/user/info') && res.id && res.username) {
       return res;
     }
-    
+
     if (res.code !== undefined && res.code !== 200) {
       return Promise.reject(new Error(res.message || '请求失败'));
     }
-    
+
     if (res.code === undefined) {
       return res;
     }
-    
+
     return res.data;
   },
   error => {
     console.error('请求错误:', error)
-    
+
     // 特殊处理退出登录失败
     if (error.config && error.config.url.includes('/auth/logout')) {
       console.warn('退出登录请求失败，但仍然清除本地登录状态')
       return { success: true }
     }
-    
+
     // 401错误处理 - 可能是token过期
     if (error.response && error.response.status === 401) {
       console.warn('认证失败，可能是token已过期')
       // 清除本地存储的token
       sessionStorage.removeItem('token')
       localStorage.removeItem('token')
+      sessionStorage.removeItem(TOKEN_EXPIRES_AT_KEY)
+      sessionStorage.removeItem(LAST_ACTIVITY_KEY)
       localStorage.removeItem('user')
       // 可以选择重定向到登录页
       if (window.location.hash !== '#/login') {
         window.location.href = '#/login'
       }
     }
-    
+
     return Promise.reject(new Error(error.response?.data?.message || error.message || '网络请求失败'))
   }
 )
@@ -201,7 +230,7 @@ export const login = async (username, password) => {
     if (process.env.NODE_ENV !== 'production') {
       // console.log('登录响应状态:', response ? '成功' : '失败'); // Can be verbose
       // console.log('响应数据结构 (keys of response):', Object.keys(response || {}).join(', '));
-      
+
       // const responseCopy = { ...response }; 
       // if (responseCopy.token) { 
       //   const tokenPrefix = String(responseCopy.token).substring(0, 6);
@@ -210,29 +239,57 @@ export const login = async (username, password) => {
       // }
       // console.log('登录响应数据结构 (modified for logging):', JSON.stringify(responseCopy, null, 2));
     }
-    
+
     if (!originalToken) {
       console.error('登录响应没有包含有效的token (originalToken is null or empty)');
       throw new Error('登录失败：无法获取访问令牌');
     }
-    
+
     // This check can be useful even in production if issues arise, but less verbose.
     // if (!originalToken.startsWith('eyJ')) {
     //   console.warn('警告: 原始token可能不是标准JWT格式（应该以eyJ开头）');
     // }
-    
+
     // More critical logs can remain, but less verbose ones commented out for now
     if (process.env.NODE_ENV !== 'production') {
       // console.log('登录成功，将返回的授权令牌'); // Verbose
       // console.log(`原始Token长度 (originalToken.length): ${originalToken.length}字符`);
       // console.log(`确认 response.token 长度在返回前: ${response.token ? response.token.length : 'N/A'}字符`);
     }
-    
-    return response; 
+
+    // 保存过期时间
+    const expiresAt = response.expiresAt || (response.expiresIn ? Date.now() + Number(response.expiresIn) * 1000 : 0)
+    if (expiresAt) {
+      setTokenExpiresAt(expiresAt)
+    }
+    markUserActivity()
+
+    return response;
 
   } catch (error) {
     console.error('登录失败:', error.message);
     throw error;
+  }
+}
+
+/**
+ * 刷新令牌
+ */
+export const refreshToken = async () => {
+  try {
+    const response = await request({
+      url: '/auth/refresh-token',
+      method: 'post'
+    })
+    const expiresAt = response.expiresAt || (response.expiresIn ? Date.now() + Number(response.expiresIn) * 1000 : 0)
+    if (expiresAt) {
+      setTokenExpiresAt(expiresAt)
+    }
+    markUserActivity()
+    return response
+  } catch (error) {
+    console.error('刷新令牌失败:', error.message)
+    throw error
   }
 }
 
@@ -245,11 +302,11 @@ export const getUserInfo = async () => {
       url: '/auth/user/info',
       method: 'get'
     });
-    
+
     if (!response) {
       throw new Error('获取用户信息失败: 服务器未返回数据');
     }
-    
+
     // 调试日志（非生产环境）
     if (process.env.NODE_ENV !== 'production') {
       const responseCopy = { ...response };
@@ -257,13 +314,13 @@ export const getUserInfo = async () => {
       delete responseCopy.password;
       console.log('用户信息响应:', JSON.stringify(responseCopy, null, 2));
     }
-    
+
     return response;
   } catch (error) {
     // 如果是401或403错误，可能是token问题
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       console.error('获取用户信息失败: 授权已过期或无效');
-      
+
       // 在非生产环境下，打印调试信息
       if (process.env.NODE_ENV !== 'production') {
         const token = getToken();
@@ -279,7 +336,7 @@ export const getUserInfo = async () => {
     } else {
       console.error('获取用户信息失败:', error.message);
     }
-    
+
     throw error;
   }
 };
@@ -320,24 +377,57 @@ const mockUserInfo = () => {
 export function getToken() {
   // 优先从sessionStorage获取token
   let token = sessionStorage.getItem('token');
-  
-  // 如果sessionStorage中没有，尝试从localStorage获取
-  if (!token) {
-    token = localStorage.getItem('token');
-    
-    // 如果从localStorage获取到了token，将其迁移到sessionStorage
-    if (token) {
-      sessionStorage.setItem('token', token);
-      // 尝试清除localStorage中的token
-      try {
-        localStorage.removeItem('token');
-      } catch (e) {
-        console.warn('无法从localStorage清除token');
-      }
+  // 若旧版本残留localStorage，清理之
+  try {
+    if (localStorage.getItem('token')) {
+      localStorage.removeItem('token');
     }
+  } catch (e) {
+    console.warn('清理旧localStorage token失败');
   }
-  
   return token;
+}
+
+/**
+ * 保存token过期时间（毫秒时间戳）
+ */
+export function setTokenExpiresAt(expiresAt) {
+  if (!expiresAt) return
+  try {
+    sessionStorage.setItem(TOKEN_EXPIRES_AT_KEY, String(expiresAt))
+  } catch (e) {
+    console.warn('保存token过期时间失败', e)
+  }
+}
+
+/**
+ * 获取token过期时间（毫秒时间戳）
+ */
+export function getTokenExpiresAt() {
+  const val = sessionStorage.getItem(TOKEN_EXPIRES_AT_KEY)
+  if (!val) return 0
+  const parsed = Number(val)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+/**
+ * 记录用户最近活跃时间
+ */
+export function markUserActivity() {
+  try {
+    sessionStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()))
+  } catch (e) {
+    console.warn('记录活跃时间失败', e)
+  }
+}
+
+/**
+ * 是否会话超时
+ */
+export function hasSessionTimedOut() {
+  const last = Number(sessionStorage.getItem(LAST_ACTIVITY_KEY) || 0)
+  if (!last) return false
+  return Date.now() - last > SESSION_TIMEOUT_MS
 }
 
 /**
@@ -350,36 +440,36 @@ export function debugJwtToken() {
     console.warn('调试函数不应在生产环境中使用');
     return { valid: true, parts: 0 };
   }
-  
+
   const token = getToken();
-  
+
   if (!token) {
     console.warn('未找到token，可能未登录');
     return { valid: false, parts: 0 };
   }
-  
+
   // 分析token格式
   console.log(`Token长度: ${token.length}字符`);
-  
+
   // 检查是否有Bearer前缀
   const hasBearer = token.startsWith('Bearer ');
   console.log(`Token前缀: ${hasBearer ? '包含Bearer ' : '无Bearer前缀'}`);
-  
+
   // 分析JWT部分
   const actualToken = hasBearer ? token.substring(7) : token;
   const parts = actualToken.split('.');
   console.log(`JWT部分数量: ${parts.length} (标准JWT应有3部分)`);
-  
+
   // 检查格式有效性
   let isValid = parts.length === 3;
-  
+
   if (!isValid) {
     console.warn('JWT格式异常，标准JWT应有3个部分（header.payload.signature）');
-    
+
     // 提供可能的原因
     if (parts.length < 3) {
       console.warn('可能原因: JWT不完整或分隔符(.)丢失');
-      
+
       // 检查是否使用了其他分隔符
       const otherDelimiters = [',', ';', '-', '_'];
       otherDelimiters.forEach(delimiter => {
@@ -388,7 +478,7 @@ export function debugJwtToken() {
           console.warn(`发现可能使用了不同的分隔符: "${delimiter}" (${testParts.length}部分)`);
         }
       });
-      
+
       // 检查长度是否异常短
       if (actualToken.length < 20) {
         console.warn('JWT长度异常短，可能不是有效JWT');
@@ -397,7 +487,7 @@ export function debugJwtToken() {
       console.warn('可能原因: JWT中包含额外的分隔符(.)');
     }
   }
-  
+
   return { valid: isValid, parts: parts.length };
 }
 

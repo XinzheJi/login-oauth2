@@ -1,7 +1,7 @@
 <template>
   <div 
     class="tab-item"
-    :class="{ 'active': active, 'closable': tab.closable }"
+    :class="{ 'active': isActive, 'closable': tab.closable }"
     @click="handleClick"
   >
     <div class="tab-content">
@@ -34,9 +34,58 @@ export default {
       default: false
     }
   },
+  computed: {
+    // 计算属性：检查当前标签页是否应该激活
+    isActive() {
+      // 优先使用传入的active属性，如果没有则根据路由判断
+      if (this.active !== undefined) {
+        return this.active
+      }
+      
+      // 根据当前路由判断是否激活
+      if (this.$route && this.tab.path) {
+        return this.$route.path === this.tab.path
+      }
+      
+      // 如果没有path，使用id判断
+      if (this.$route && this.tab.id) {
+        return this.$route.path === this.tab.id
+      }
+      
+      return false
+    }
+  },
   methods: {
     handleClick() {
+      console.log('=== TabItem点击事件触发 ===')
+      console.log('标签页标题:', this.tab.title)
+      console.log('标签页ID:', this.tab.id)
+      console.log('标签页路径:', this.tab.path || this.tab.id)
+      console.log('当前路由:', this.$route ? this.$route.path : '未找到路由')
+      console.log('Router实例:', this.$router ? '存在' : '不存在')
+      
+      // 如果标签页有path属性，直接进行路由跳转
+      if (this.tab.path && this.$router) {
+        console.log('执行路由跳转:', this.tab.path)
+        this.$router.push(this.tab.path).then(() => {
+          console.log('路由跳转成功:', this.tab.path)
+        }).catch(err => {
+          console.error('路由跳转失败:', err)
+        })
+      } else if (this.tab.id && this.$router) {
+        console.log('使用ID进行路由跳转:', this.tab.id)
+        this.$router.push(this.tab.id).then(() => {
+          console.log('路由跳转成功:', this.tab.id)
+        }).catch(err => {
+          console.error('路由跳转失败:', err)
+        })
+      } else {
+        console.warn('无法执行路由跳转 - 缺少path/id或router实例')
+      }
+      
+      // 同时发出事件给父组件
       this.$emit('click', this.tab.id)
+      console.log('=== TabItem点击事件处理完成 ===')
     },
     
     handleClose() {

@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vue Demo - 设备列表表格</title>
+  <!-- 引入Vue 2 -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <!-- 引入Element UI -->
+  <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+  <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+  <!-- 引入Lodash -->
+  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+  <!-- 引入Day.js -->
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.3/dayjs.min.js"></script>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f7fa;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 4px;
+      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ebeef5;
+    }
+    .header h1 {
+      margin: 0;
+      color: #303133;
+    }
+    .description {
+      color: #606266;
+      margin-top: 10px;
+    }
+    
+    /* CommonTable样式 */
+    .common-table {
+      margin-top: 20px;
+    }
+    
+    .common-table .main-operator-block {
+      margin-bottom: 10px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    
+    .common-table .main-operator-block .left-button {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 5px;
+    }
+    
+    .common-table .main-operator-block .left-button .el-button {
+      margin: 0;
+    }
+    
+    .common-table .main-operator-block .search-block {
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+      gap: 5px;
+      flex-wrap: wrap;
+      flex: 1;
+      max-width: 780px;
+    }
+    
+    .common-table .main-operator-block .search-block .search-item {
+      width: 190px;
+    }
+    
+    .common-table .main-operator-block .search-block .query-button-group {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+      gap: 5px;
+    }
+    
+    .common-table .main-operator-block .search-block .query-button-group .el-button {
+      margin: 0;
+    }
+    
+    .common-table .paging-operation {
+      padding: 10px;
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .table-column-link {
+      color: #409EFF;
+      text-decoration: none;
+    }
+    
+    .table-column-link:hover {
+      color: #66b1ff;
+    }
+    
+    .device-status-icon {
+      margin-right: 5px;
+    }
+    
+    .online-icon {
+      color: #67C23A;
+    }
+    
+    .offline-icon {
+      color: #F56C6C;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <div class="header">
+        <h1>Vue设备列表表格Demo</h1>
+        <p class="description">这是一个基于Vue 2和Element UI的设备列表表格组件示例</p>
+      </div>
+      
+      <device-list-table></device-list-table>
+    </div>
+  </div>
+
+  <script>
+    // 模拟字典数据
+    const dictData = {
+      device_role: [
+        { dictKey: '1', dictValue: '路由器' },
+        { dictKey: '2', dictValue: '交换机' },
+        { dictKey: '3', dictValue: '防火墙' },
+        { dictKey: '4', dictValue: '服务器' }
+      ],
+      device_operation_state: [
+        { dictKey: '0', dictValue: '未投运' },
+        { dictKey: '1', dictValue: '已投运' },
+        { dictKey: '2', dictValue: '停运' }
+      ],
+      online_status: [
+        { dictKey: '0', dictValue: '离线' },
+        { dictKey: '1', dictValue: '在线' }
+      ],
+      snmp_version: [
+        { dictKey: '1', dictValue: 'v1' },
+        { dictKey: '2', dictValue: 'v2c' },
+        { dictKey: '3', dictValue: 'v3' }
+      ],
+      business_type: [
+        { dictKey: '1', dictValue: '视频监控' },
+        { dictKey: '2', dictValue: '环境监测' },
+        { dictKey: '3', dictValue: '门禁系统' }
+      ],
+      asset_owner: [
+        { dictKey: '1', dictValue: '自有' },
+        { dictKey: '2', dictValue: '租用' },
+        { dictKey: '3', dictValue: '客户资产' }
+      ]
+    };
+    
+    // 模拟设备数据
+    const mockDeviceData = [
+      {
+        id: 1,
+        name: '核心路由器-01',
+        deviceRole: '1',
+        manufacturerName: '华为',
+        modelName: 'NE40E',
+        onlineStatus: 1,
+        snmpStatus: 1,
+        snmpVersion: '2',
+        ip: '192.168.1.1',
+        stationName: '中心机房',
+        area12345: {
+          area2: '北京市',
+          area3: '海淀区',
+          area4: '中关村供电所'
+        },
+        businessType: '1',
+        bizIp: '10.0.0.1',
+        operatingState: '1',
+        operatingTime: '2020-05-15',
+        bizCode: 'BIZ202001',
+        bizName: '网络升级项目',
+        sourceId: 'GIS001',
+        asset: '1',
+        code: 'DEV001',
+        createTime: '2020-01-10',
+        versionDesc: 'VRP 8.180',
+        modelValide: '正确',
+        sysObjectId: '1.3.6.1.4.1.2011.2',
+        sshTelnet: 1,
+        portCount: 24,
+        electricsPortCount: 20,
+        fiberPortCount: 4,
+        cpuUsedRate: '25.5',
+        memoryUsedRate: '42.3',
+        assetUniqueCode: 'ASSET001',
+        power1: '正常',
+        power2: '正常'
+      },
+      {
+        id: 2,
+        name: '接入交换机-01',
+        deviceRole: '2',
+        manufacturerName: '华三',
+        modelName: 'S5120V2-28P-LI',
+        onlineStatus: 0,
+        snmpStatus: 0,
+        snmpVersion: '2',
+        ip: '192.168.2.10',
+        stationName: '分机房A',
+        area12345: {
+          area2: '北京市',
+          area3: '朝阳区',
+          area4: 'CBD供电所'
+        },
+        businessType: '2',
+        bizIp: '10.0.1.10',
+        operatingState: '1',
+        operatingTime: '2020-08-20',
+        bizCode: 'BIZ202002',
+        bizName: '设备扩容项目',
+        sourceId: 'GIS002',
+        asset: '2',
+        code: 'DEV002',
+        createTime: '2020-03-15',
+        versionDesc: 'Comware 5.20',
+        modelValide: '错误',
+        sysObjectId: '1.3.6.1.4.1.25506.1.599',
+        sshTelnet: 0,
+        portCount: 28,
+        electricsPortCount: 24,
+        fiberPortCount: 4,
+        cpuUsedRate: '15.2',
+        memoryUsedRate: '30.8',
+        assetUniqueCode: 'ASSET002',
+        power1: '正常',
+        power2: '异常'
+      },
+      {
+        id: 3,
+        name: '防火墙-01',
+        deviceRole: '3',
+        manufacturerName: '思科',
+        modelName: 'ASA5506',
+        onlineStatus: 1,
+        snmpStatus: 1,
+        snmpVersion: '3',
+        ip: '192.168.1.254',
+        stationName: '中心机房',
+        area12345: {
+          area2: '上海市',
+          area3: '浦东新区',
+          area4: '陆家嘴供电所'
+        },
+        businessType: '3',
+        bizIp: '10.0.0.254',
+        operatingState: '1',
+        operatingTime: '2019-11-10',
+        bizCode: 'BIZ201901',
+        bizName: '安全升级项目',
+        sourceId: 'GIS003',
+        asset: '1',
+        code: 'DEV003',
+        createTime: '2019-10-05',
+        versionDesc: 'ASA 9.12',
+        modelValide: '正确',
+        sysObjectId: '1.3.6.1.4.1.9.1.745',
+        sshTelnet: 1,
+        portCount: 8,
+        electricsPortCount: 8,
+        fiberPortCount: 0,
+        cpuUsedRate: '35.7',
+        memoryUsedRate: '55.2',
+        assetUniqueCode: 'ASSET003',
+        power1: '正常',
+        power2: '正常'
+      },
+      {
+        id: 4,
+        name: '应用服务器-01',
+        deviceRole: '4',
+        manufacturerName: '戴尔',
+        modelName: 'PowerEdge R740',
+        onlineStatus: 1,
+        snmpStatus: 1,
+        snmpVersion: '2',
+        ip: '192.168.10.100',
+        stationName: '数据中心',
+        area12345: {
+          area2: '上海市',
+          area3: '浦东新区',
+          area4: '张江供电所'
+        },
+        businessType: '1',
+        bizIp: '10.0.10.100',
+        operatingState: '1',
+        operatingTime: '2021-02-28',
+        bizCode: 'BIZ202101',
+        bizName: '服务器扩容项目',
+        sourceId: 'GIS004',
+        asset: '1',
+        code: 'DEV004',
+        createTime: '2021-01-15',
+        versionDesc: 'VMware ESXi 7.0',
+        modelValide: '正确',
+        sysObjectId: '1.3.6.1.4.1.674.10895.5000.2.6132.1.1',
+        sshTelnet: 1,
+        portCount: 4,
+        electricsPortCount: 2,
+        fiberPortCount: 2,
+        cpuUsedRate: '68.5',
+        memoryUsedRate: '72.3',
+        assetUniqueCode: 'ASSET004',
+        power1: '正常',
+        power2: '正常'
+      }
+    ];
+    
+    // 模拟厂商数据
+    const manufacturerOptions = [
+      { id: 1, name: '华为' },
+      { id: 2, name: '华三' },
+      { id: 3, name: '思科' },
+      { id: 4, name: '戴尔' },
+      { id: 5, name: '惠普' }
+    ];
+    
+    // 模拟型号数据
+    const modelOptions = [
+      { id: 1, name: 'NE40E' },
+      { id: 2, name: 'S5120V2-28P-LI' },
+      { id: 3, name: 'ASA5506' },
+      { id: 4, name: 'PowerEdge R740' },
+      { id: 5, name: 'ProLiant DL380' }
+    ];
+    
+    // 获取字典值的方法
+    function getDictValue(dict, key, defaultValue = '') {
+      if (!dict || !key) return defaultValue;
+      const item = dict.find(item => item.dictKey === key);
+      return item ? item.dictValue : defaultValue;
+    }
+    
+    // 注册全局方法
+    Vue.prototype.$dayjs = dayjs;
+    Vue.prototype._ = _;
+    
+    // 通用表格组件
+    Vue.component('common-table', {
+      template: `
+        <div class="common-table">
+          <div class="main-operator-block">
+            <div class="left-button">
+              <slot name="operate-button"></slot>
+            </div>
+            <div class="search-block">
+              <slot name="operate-search"></slot>
+              <div class="query-button-group">
+                <el-button type="primary" icon="el-icon-search" @click="doSearch">查询</el-button>
+                <el-button icon="el-icon-refresh-left" @click="doReset">重置</el-button>
+                <slot name="operate-button-right"></slot>
+              </div>
+            </div>
+          </div>
+          <el-table
+            ref="TableRef"
+            v-loading="loading"
+            :data="tableData"
+            border
+            stripe
+            size="small"
+            :header-cell-style="{background:'#f8f8f9',color:'rgb(80 78 78)'}"
+            @sort-change="sortChangeHandler"
+          >
+            <el-table-column type="index" label="序号" align="center" width="60" />
+            <slot name="table-columns"></slot>
+          </el-table>
+          <div class="paging-operation">
+            <el-pagination
+              v-if="pagination.current >= 0 && pagination.pageSize >= 0"
+              :current-page="pagination.current"
+              :page-sizes="[10, 20, 50, 100]"
+              :page-size="pagination.pageSize"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="pagination.total"
+              @size-change="handleSizeChange"
+              @current-change="handleCurrentChange"
+            />
+          </div>
+        </div>
+      `,
+      props: {
+        loading: {
+          type: Boolean,
+          default: false
+        },
+        tableData: {
+          type: Array,
+          required: true,
+          default: () => []
+        },
+        pagination: {
+          type: Object,
+          default: () => ({})
+        }
+      },
+      methods: {
+        doSearch() {
+          this.$emit('do-search');
+        },
+        doReset() {
+          this.$emit('do-reset');
+        },
+        sortChangeHandler(sort) {
+          this.$emit('sort-change', sort);
+        },
+        handleSizeChange(size) {
+          if (this.pagination.pageSize) {
+            this.pagination.pageSize = size;
+            this.$emit('on-load');
+          }
+        },
+        handleCurrentChange(current) {
+          if (this.pagination.current) {
+            this.pagination.current = current;
+            this.$emit('on-load');
+          }
+        }
+      }
+    });
+    
+    // 设备列表表格组件
+    Vue.component('device-list-table', {
+      template: `
+        <div>
+          <common-table
+            ref="CommonTableRef"
+            :loading="loading"
+            :table-data="tableData"
+            :pagination="filter"
+            @do-reset="doReset"
+            @do-search="doSearch"
+            @on-load="loadData"
+            @sort-change="sortChangeHandler"
+          >
+            <template #operate-button>
+              <el-button type="primary" icon="el-icon-plus" @click="addDevice">新增设备</el-button>
+              <el-button @click="batchModifyDevice">批量修改</el-button>
+              <el-button @click="gotoTemplate">设备属性模版</el-button>
+              <el-button @click="goToImportData">导入数据</el-button>
+            </template>
+            <template #operate-search>
+              <el-input v-model="filter.ip" class="search-item" placeholder="请输入管理地址" clearable />
+              <el-select
+                v-model="filter.deviceRole"
+                class="search-item"
+                multiple
+                collapse-tags
+                placeholder="请选择设备性质"
+                clearable
+              >
+                <el-option
+                  v-for="{dictKey,dictValue} in dict.device_role"
+                  :key="dictKey"
+                  :value="dictKey"
+                  :label="dictValue"
+                />
+              </el-select>
+              <el-input v-model="filter.name" class="search-item" placeholder="请输入设备名称" clearable />
+              <el-select
+                v-model="filter.onlineStatus"
+                class="search-item"
+                placeholder="请选择设备状态"
+                clearable
+              >
+                <el-option
+                  v-for="{dictKey,dictValue} in dict.online_status"
+                  :key="dictKey"
+                  :value="dictKey"
+                  :label="dictValue"
+                />
+              </el-select>
+              <el-select
+                v-model="filter.manufacturerId"
+                class="search-item"
+                placeholder="请选择厂商"
+                filterable
+                clearable
+                @change="manufacturerIdChangeCallback"
+              >
+                <el-option v-for="item in manufacturerOptions" :key="item.id" :label="item.name" :value="item.id" />
+              </el-select>
+            </template>
+            <template #operate-button-right>
+              <el-button :loading="loadingExport" type="success" @click="handleExport">导出</el-button>
+            </template>
+            <template #table-columns>
+              <el-table-column type="index" label="序号" align="center" />
+              <el-table-column prop="name" label="设备名称" min-width="200px" show-overflow-tooltip sortable="custom">
+                <template v-slot="{row}">
+                  <a
+                    class="table-column-link has-icon"
+                    href="javascript:void(0)"
+                    style="margin-left: 5px"
+                    @click="gotoDetail(row)"
+                  >
+                    <i
+                      :class="'el-icon-circle-check device-status-icon ' + getDeviceStatusClass(row.onlineStatus)"
+                    />
+                    <span>{{ row.name }}</span>
+                  </a>
+                </template>
+              </el-table-column>
+              <el-table-column prop="deviceRole" label="设备性质" width="140px" align="center">
+                <template v-slot="{row}">
+                  {{ getDictValue(dict.device_role, row.deviceRole) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="manufacturerName" label="设备厂商" align="center" show-overflow-tooltip width="100px" />
+              <el-table-column prop="modelName" label="厂商型号" align="center" show-overflow-tooltip width="150px" />
+              <el-table-column prop="onlineStatus" label="设备状态" width="100px" align="center" sortable="custom">
+                <template v-slot="{row}">
+                  <span :style="{color: row.onlineStatus === 1 ? '#67C23A' : '#F56C6C'}">
+                    {{ getDictValue(dict.online_status, row.onlineStatus, '未知') }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="snmpStatus" label="SNMP状态" width="120px" align="center" sortable="custom">
+                <template v-slot="{row}">
+                  <span :style="{color: row.snmpStatus === 1 ? '#67C23A' : '#F56C6C'}">
+                    {{ _.isNil(row.snmpStatus) ? '未知' : row.snmpStatus === 1 ? '正常' : '异常' }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="snmpVersion" label="SNMP版本" width="120px" align="center" sortable="custom">
+                <template v-slot="{row}">
+                  {{ getDictValue(dict.snmp_version, row.snmpVersion) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="ip" label="管理地址" align="center" width="130px" sortable="custom" />
+              <el-table-column prop="stationName" label="所属站点" align="center" show-overflow-tooltip min-width="150px" />
+              <el-table-column
+                prop="area12345.area2"
+                label="所属地市"
+                align="center"
+                show-overflow-tooltip
+                min-width="140px"
+              />
+              <el-table-column
+                prop="area12345.area3"
+                label="所属区局"
+                align="center"
+                show-overflow-tooltip
+                min-width="160px"
+              />
+              <el-table-column prop="businessType" label="接入业务" align="center" show-overflow-tooltip min-width="120px">
+                <template v-slot="{row}">
+                  {{ getDictValue(dict.business_type, row.businessType) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="operatingState" label="投运状态" align="center" width="120px">
+                <template v-slot="{row}">
+                  {{ getDictValue(dict.device_operation_state, row.operatingState, '未知') }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="createTime" label="创建日期" align="center" show-overflow-tooltip width="140px">
+                <template v-slot="{row}">
+                  {{ $dayjs(row.createTime).format('YYYY-MM-DD') }}
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" fixed="right" width="180px" align="center">
+                <template v-slot="{row}">
+                  <el-button type="text" size="mini" @click="gotoDetail(row)">查看</el-button>
+                  <el-button size="mini" type="text" @click="editDevice(row.id)">编辑</el-button>
+                  <el-button size="mini" type="text" @click="deleteDevice(row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </template>
+          </common-table>
+        </div>
+      `,
+      data() {
+        return {
+          loading: false,
+          loadingExport: false,
+          tableData: [],
+          filter: {
+            current: 1,
+            total: 0,
+            pageSize: 10,
+            ip: '',
+            name: '',
+            onlineStatus: '',
+            deviceRole: [],
+            manufacturerId: ''
+          },
+          manufacturerOptions: manufacturerOptions,
+          modelOptions: modelOptions,
+          dict: dictData
+        };
+      },
+      mounted() {
+        this.loadData();
+      },
+      methods: {
+        getDictValue,
+        doReset() {
+          this.filter = {
+            current: 1,
+            total: 0,
+            pageSize: 10,
+            ip: '',
+            name: '',
+            onlineStatus: '',
+            deviceRole: [],
+            manufacturerId: ''
+          };
+          this.loadData();
+        },
+        doSearch() {
+          this.filter.current = 1;
+          this.loadData();
+        },
+        loadData() {
+          this.loading = true;
+          
+          // 模拟API调用延迟
+          setTimeout(() => {
+            // 简单的过滤逻辑
+            let filteredData = [...mockDeviceData];
+            
+            if (this.filter.ip) {
+              filteredData = filteredData.filter(item => 
+                item.ip.includes(this.filter.ip)
+              );
+            }
+            
+            if (this.filter.name) {
+              filteredData = filteredData.filter(item => 
+                item.name.includes(this.filter.name)
+              );
+            }
+            
+            if (this.filter.onlineStatus !== '') {
+              filteredData = filteredData.filter(item => 
+                item.onlineStatus.toString() === this.filter.onlineStatus
+              );
+            }
+            
+            if (this.filter.deviceRole && this.filter.deviceRole.length > 0) {
+              filteredData = filteredData.filter(item => 
+                this.filter.deviceRole.includes(item.deviceRole)
+              );
+            }
+            
+            if (this.filter.manufacturerId) {
+              // 这里简化处理，实际应该根据厂商ID过滤
+              const manufacturer = this.manufacturerOptions.find(m => m.id === this.filter.manufacturerId);
+              if (manufacturer) {
+                filteredData = filteredData.filter(item => 
+                  item.manufacturerName === manufacturer.name
+                );
+              }
+            }
+            
+            // 分页处理
+            this.filter.total = filteredData.length;
+            const start = (this.filter.current - 1) * this.filter.pageSize;
+            const end = start + this.filter.pageSize;
+            this.tableData = filteredData.slice(start, end);
+            
+            this.loading = false;
+          }, 500);
+        },
+        sortChangeHandler(sort) {
+          if (sort.prop) {
+            this.tableData.sort((a, b) => {
+              if (sort.order === 'ascending') {
+                return a[sort.prop] > b[sort.prop] ? 1 : -1;
+              } else {
+                return a[sort.prop] < b[sort.prop] ? 1 : -1;
+              }
+            });
+          }
+        },
+        manufacturerIdChangeCallback() {
+          this.filter.modelId = '';
+          // 这里应该根据厂商ID加载对应的型号数据
+        },
+        handleExport() {
+          this.loadingExport = true;
+          this.$message.success('导出成功');
+          setTimeout(() => {
+            this.loadingExport = false;
+          }, 1000);
+        },
+        addDevice() {
+          this.$message.success('新增设备功能');
+        },
+        batchModifyDevice() {
+          this.$message.success('批量修改功能');
+        },
+        gotoTemplate() {
+          this.$message.success('设备属性模版功能');
+        },
+        goToImportData() {
+          this.$message.success('导入数据功能');
+        },
+        gotoDetail(row) {
+          this.$message.success(`查看设备详情: ${row.name}`);
+        },
+        editDevice(id) {
+          const device = this.tableData.find(item => item.id === id);
+          if (device) {
+            this.$message.success(`编辑设备: ${device.name}`);
+          }
+        },
+        deleteDevice(row) {
+          this.$confirm(`确定删除设备 ${row.name} 吗?`, '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(() => {
+            this.$message.success('删除成功');
+            this.loadData();
+          }).catch(() => {
+            this.$message.info('已取消删除');
+          });
+        },
+        getDeviceStatusClass(status) {
+          return status === 1 ? 'online-icon' : 'offline-icon';
+        }
+      }
+    });
+    
+    // 创建Vue实例
+    new Vue({
+      el: '#app'
+    });
+  </script>
+</body>
+</html>

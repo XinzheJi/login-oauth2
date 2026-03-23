@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.system.ai.predict.mapper.AiPredictResultMapper">
+
+    <insert id="upsert">
+        INSERT INTO ai_predict_result (
+            device_id, predict_type, prediction_time, result_json, created_at
+        ) VALUES (
+            #{e.deviceId}, #{e.predictType}, #{e.predictionTime}, #{e.resultJson}, NOW(6)
+        )
+        ON DUPLICATE KEY UPDATE
+            result_json = VALUES(result_json),
+            created_at = NOW(6)
+    </insert>
+
+    <select id="countRange" resultType="long">
+        SELECT COUNT(1)
+        FROM ai_predict_result
+        WHERE device_id = #{deviceId}
+        <if test="predictType != null and predictType != ''">
+            AND predict_type = #{predictType}
+        </if>
+        <if test="start != null">
+            AND prediction_time &gt;= #{start}
+        </if>
+        <if test="end != null">
+            AND prediction_time &lt;= #{end}
+        </if>
+    </select>
+
+    <select id="selectRange" resultType="com.system.ai.predict.persistence.AiPredictResult">
+        SELECT id, device_id AS deviceId, predict_type AS predictType,
+               prediction_time AS predictionTime, result_json AS resultJson, created_at AS createdAt
+        FROM ai_predict_result
+        WHERE device_id = #{deviceId}
+        <if test="predictType != null and predictType != ''">
+            AND predict_type = #{predictType}
+        </if>
+        <if test="start != null">
+            AND prediction_time &gt;= #{start}
+        </if>
+        <if test="end != null">
+            AND prediction_time &lt;= #{end}
+        </if>
+        ORDER BY prediction_time
+        <choose>
+            <when test="asc">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+</mapper>

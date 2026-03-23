@@ -1,21 +1,27 @@
 <template>
   <div class="power-device-manage-container">
-    <h2>电源台账管理</h2>
-    
-    <!-- 搜索栏 -->
-    <div class="search-bar">
-      <el-form :inline="true" :model="searchForm" class="form-inline">
-        <el-form-item label="设备名称">
-          <el-input v-model="searchForm.deviceName" placeholder="设备名称" clearable></el-input>
-        </el-form-item>
-        <el-form-item label="IP地址">
-          <el-input v-model="searchForm.ipAddress" placeholder="IP地址" clearable></el-input>
-        </el-form-item>
-        <el-form-item label="设备位置">
-          <el-input v-model="searchForm.location" placeholder="设备位置" clearable></el-input>
-        </el-form-item>
-        <el-form-item label="设备类型">
-          <el-select v-model="searchForm.deviceType" placeholder="请选择" clearable>
+    <h2 class="page-title" style="font-weight: normal;">电源台账管理</h2>
+
+    <!-- 主操作区 -->
+    <div class="main-operator-block">
+      <!-- 左侧操作按钮 -->
+      <div class="left-button">
+        <el-button v-permission="'power:device'" type="primary" :icon="Plus" @click="handleAdd">
+          新增设备
+        </el-button>
+        <!-- <el-button @click="batchModifyDevice">批量修改</el-button>
+        <el-button @click="gotoTemplate">设备属性模版</el-button>
+        <el-button @click="goToImportData">导入数据</el-button> -->
+      </div>
+      
+      <!-- 搜索区域 -->
+      <div class="search-area">
+        <!-- 第一行：四个输入组件 -->
+        <div class="search-row">
+          <el-input v-model="searchForm.deviceName" class="search-item" placeholder="请输入设备名称" clearable></el-input>
+          <el-input v-model="searchForm.ipAddress" class="search-item" placeholder="请输入设备IP" clearable></el-input>
+          <el-input v-model="searchForm.location" class="search-item" placeholder="请输入设备位置" clearable></el-input>
+          <el-select v-model="searchForm.deviceType" class="search-item" placeholder="请选择设备类型" clearable>
             <el-option
               v-for="item in deviceTypeOptions"
               :key="item.value"
@@ -23,10 +29,13 @@
               :value="item.value">
             </el-option>
           </el-select>
-        </el-form-item>
-        <el-form-item label="安装日期">
-          <el-date-picker
+        </div>
+        
+        <!-- 第二行：日期选择器 -->
+        <div class="search-row" >
+             <el-date-picker
             v-model="dateRange"
+            class="search-item date-range-picker"
             type="daterange"
             range-separator="至"
             start-placeholder="开始日期"
@@ -34,19 +43,16 @@
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD">
           </el-date-picker>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="resetSearch">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
-    
-    <!-- 操作按钮 -->
-    <div class="action-bar">
-      <el-button v-permission="'power:device'" type="primary" @click="handleAdd" class="add-btn">
-        <el-icon><Plus /></el-icon>添加设备
-      </el-button>
+        </div>
+        
+        <!-- 第三行：查询和重置按钮 -->
+        <div class="button-row">
+          <div class="query-button-group">
+            <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
+            <el-button :icon="RefreshLeft" @click="resetSearch">重置</el-button>
+          </div>
+        </div>
+      </div>
     </div>
     
     <!-- 设备列表 -->
@@ -54,31 +60,47 @@
       v-loading="loading"
       :data="deviceList"
       border
-      style="width: 100%">
-      <el-table-column prop="deviceId" label="设备ID" width="120"></el-table-column>
-      <el-table-column prop="deviceName" label="设备名称" min-width="150"></el-table-column>
-      <el-table-column prop="ipAddress" label="IP地址" min-width="150"></el-table-column>
-      <el-table-column prop="location" label="设备位置" min-width="150"></el-table-column>
-      <el-table-column prop="deviceType" label="设备类型" width="120"></el-table-column>
-      <el-table-column prop="installDate" label="安装日期" width="160"></el-table-column>
-      <el-table-column prop="tenantName" label="所属租户" width="120"></el-table-column>
-      <el-table-column label="操作" width="200">
+      stripe
+      
+      :header-cell-style="{background:'#f8f8f9',color:'rgb(80 78 78)'}"
+      style="width: 100%"
+      @sort-change="sortChangeHandler">
+      <el-table-column type="index" label="序号" align="center" width="60" />
+      <el-table-column prop="deviceId" label="设备ID" align="center" width="120"></el-table-column>
+      <el-table-column prop="deviceName" label="设备名称" min-width="150" align="center" sortable="custom">
         <template #default="scope">
-          <el-button v-permission="'power:device'" type="primary" link @click="handleView(scope.row)" size="small">
-            查看
-          </el-button>
-          <el-button v-permission="'power:device'" type="primary" link @click="handleEdit(scope.row)" size="small">
-            编辑
-          </el-button>
-          <el-button v-permission="'power:device'" type="danger" link @click="handleDelete(scope.row)" size="small">
-            删除
-          </el-button>
+          <a
+            class="table-column-link has-icon"
+            href="javascript:void(0)"
+            style="margin-left: 5px"
+            @click="handleToDirtyDataMonitor(scope.row)"
+          >
+            <i
+              class="el-icon-circle-check device-status-icon"
+              :class="getDeviceStatusClass(scope.row.onlineStatus)"
+            />
+            <span>{{ scope.row.deviceName }}</span>
+          </a>
+        </template>
+      </el-table-column>
+      <el-table-column prop="ipAddress" label="IP地址" align="center" min-width="150" sortable="custom"></el-table-column>
+      <el-table-column prop="location" label="设备位置" align="center" min-width="150"></el-table-column>
+      <el-table-column prop="deviceType" label="设备类型" align="center" width="120"></el-table-column>
+      <el-table-column prop="installDate" label="安装日期" align="center" width="160"></el-table-column>
+      <el-table-column prop="tenantName" label="所属租户" align="center" width="120"></el-table-column>
+      <el-table-column label="操作" fixed="right" width="180px" align="center">
+        <template #default="scope">
+          <div class="operation-buttons">
+            <el-button v-permission="'power:device'" link type="primary" size="small" @click="handleView(scope.row)">查看</el-button>
+            <el-button v-permission="'power:device'" link type="primary" size="small" @click="handleEdit(scope.row)">编辑</el-button>
+            <el-button v-permission="'power:device'" link type="primary" size="small" @click="handleDelete(scope.row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
     
     <!-- 分页器 -->
-    <div class="pagination-container">
+    <div class="paging-operation">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -163,17 +185,51 @@
         </span>
       </template>
     </el-dialog>
+    
+    <!-- 设备监控对话框 -->
+    <el-dialog
+      v-model="monitorDialogVisible"
+      title="设备实时监控"
+      width="85%"
+      :close-on-click-modal="false">
+      <el-descriptions :column="3" border style="margin-bottom: 20px;">
+        <el-descriptions-item label="设备名称">{{ currentDevice.deviceName }}</el-descriptions-item>
+        <el-descriptions-item label="IP地址">{{ currentDevice.ipAddress }}</el-descriptions-item>
+        <el-descriptions-item label="设备位置">{{ currentDevice.location }}</el-descriptions-item>
+        <el-descriptions-item label="设备类型">{{ currentDevice.deviceType }}</el-descriptions-item>
+        <el-descriptions-item label="安装日期">{{ currentDevice.installDate }}</el-descriptions-item>
+        <el-descriptions-item label="备注">{{ currentDevice.remark || '-' }}</el-descriptions-item>
+      </el-descriptions>
+      
+      <!-- 设备实时监控组件 -->
+      <PowerDeviceMonitor 
+        :realtime-data="mockRealtimeData"
+        :cycle-count="mockCycleCount"
+        :battery-capacity="mockBatteryCapacity"
+        :device-status-data="mockDeviceStatus"
+      />
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="monitorDialogVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { getDeviceList, getDeviceById, createDevice, updateDevice, deleteDevice } from '@/api/powerDevice'
 import { useUserStore } from '@/store/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Search, RefreshLeft } from '@element-plus/icons-vue'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import PowerDeviceMonitor from '@/components/common/PowerDeviceMonitor.vue'
 
 const userStore = useUserStore()
+const router = useRouter()
 
 // 数据状态
 const loading = ref(false)
@@ -185,7 +241,27 @@ const dialogVisible = ref(false)
 const dialogType = ref('add') // 'add', 'edit', 'view'
 const deviceFormRef = ref(null)
 const deleteDialogVisible = ref(false)
+const monitorDialogVisible = ref(false)
 const currentDevice = ref({})
+
+// 设备监控模拟数据
+const mockRealtimeData = reactive({
+  acVoltage: 'AC220V',
+  dcVoltage: 'DC24V',
+  loadCurrent: '450mA',
+  batteryLevel: '85%'
+})
+const mockCycleCount = ref(186)
+const mockBatteryCapacity = reactive({
+  capacity1: '20000mAh',
+  capacity2: '20000mAh'
+})
+const mockDeviceStatus = reactive({
+  warningCount: 2,
+  faultCount: 0,
+  alarmRecoverCount: 5,
+  normalCount: 12
+})
 
 // 日期范围选择器的数据
 const dateRange = ref([])
@@ -210,7 +286,9 @@ const searchForm = reactive({
   installDateStart: '',
   installDateEnd: '',
   pageNum: 1,
-  pageSize: 10
+  pageSize: 10,
+  sort: '',
+  order: ''
 })
 
 // 监听日期范围变化
@@ -316,6 +394,33 @@ const handleSearch = () => {
   fetchDeviceList()
 }
 
+// 排序处理
+const sortChangeHandler = (sort) => {
+  if (sort.prop) {
+    // 前端排序，不涉及后端接口
+    const sortedList = [...deviceList.value].sort((a, b) => {
+      let aValue = a[sort.prop]
+      let bValue = b[sort.prop]
+      
+      // 处理字符串比较
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase()
+        bValue = bValue.toLowerCase()
+      }
+      
+      if (aValue < bValue) {
+        return sort.order === 'ascending' ? -1 : 1
+      }
+      if (aValue > bValue) {
+        return sort.order === 'ascending' ? 1 : -1
+      }
+      return 0
+    })
+    
+    deviceList.value = sortedList
+  }
+}
+
 // 重置搜索
 const resetSearch = () => {
   Object.keys(searchForm).forEach(key => {
@@ -346,15 +451,38 @@ const handleEdit = (row) => {
   getDeviceDetails(row.deviceId)
 }
 
-// 查看设备
+// 跳转到脏数据监控页
+const handleToDirtyDataMonitor = (row) => {
+  if (!row || !row.deviceId) return
+  router.push({
+    path: '/dirty-data-monitor',
+    query: {
+      deviceId: row.deviceId,
+      deviceName: row.deviceName
+    }
+  })
+}
+
+// 查看设备 - 打开监控对话框
 const handleView = (row) => {
   console.log('查看设备，行数据:', row);
   if (!row || !row.deviceId) {
     ElMessage.error('无效的设备数据，缺少设备ID');
     return;
   }
-  dialogType.value = 'view'
-  getDeviceDetails(row.deviceId)
+  // 设置当前设备信息
+  currentDevice.value = { ...row };
+  
+  // 根据设备ID生成不同的模拟监控数据
+  const deviceIdNum = parseInt(row.deviceId) || 1;
+  mockRealtimeData.acVoltage = `AC${218 + (deviceIdNum % 5)}V`;
+  mockRealtimeData.dcVoltage = `DC${23 + (deviceIdNum % 3)}V`;
+  mockRealtimeData.loadCurrent = `${300 + (deviceIdNum * 50) % 400}mA`;
+  mockRealtimeData.batteryLevel = `${70 + (deviceIdNum * 7) % 30}%`;
+  mockCycleCount.value = 100 + (deviceIdNum * 23) % 200;
+  
+  // 打开监控对话框
+  monitorDialogVisible.value = true;
 }
 
 // 获取设备详情
@@ -531,6 +659,27 @@ const handleCurrentChange = (val) => {
 onMounted(() => {
   fetchDeviceList()
 })
+
+// 新增方法
+const batchModifyDevice = () => {
+  ElMessage.info('批量修改功能开发中...')
+}
+
+const gotoTemplate = () => {
+  ElMessage.info('设备属性模版功能开发中...')
+}
+
+const goToImportData = () => {
+  ElMessage.info('导入数据功能开发中...')
+}
+
+const getDeviceStatusClass = (status) => {
+  return status === 1 ? 'online-icon' : 'offline-icon'
+}
+
+const gotoTopology = (command, row) => {
+  ElMessage.info(`定位功能开发中... 命令: ${command}, 设备: ${row.deviceName}`)
+}
 </script>
 
 <style scoped>
@@ -538,26 +687,241 @@ onMounted(() => {
   padding: 20px;
 }
 
-.search-bar {
-  background-color: #f5f7fa;
-  padding: 15px;
-  border-radius: 4px;
-  margin-bottom: 20px;
+/* 页面标题样式 */
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
 }
 
-.action-bar {
-  margin-bottom: 20px;
+/* 主操作区样式 */
+/* 主操作区样式 */
+.main-operator-block {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.left-button {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: -0px;
+}
+
+.left-button .el-button {
+  margin: 0;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: flex-start;
+}
+
+
+.search-item {
+  width: 190px;
+}
+
+.search-item .el-input,
+.search-item .el-select,
+.search-item .el-date-picker {
+  width: 100%;
+}
+
+/* 搜索区域样式 */
+.search-area {
+  margin-top: 0;
+  flex: 1;
+  max-width: 780px;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.search-item {
+  width: 190px;
+}
+
+.date-range-picker {
+  width: 390px; /* 两个输入框的宽度加上间距 */
+}
+
+.search-item .el-input,
+.search-item .el-select,
+.search-item .el-date-picker {
+  width: 100%;
+}
+
+.query-button-group {
+  display: flex;
+  gap: 5px;
+}
+
+.button-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.query-button-group .el-button {
+  margin: 0;
+}
+
+/* 按钮样式 */
+:deep(.el-button) {
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+:deep(.el-button--primary) {
+  background-color: #409EFF;
+  border-color: #409EFF;
+  font-weight: 500;
+}
+
+:deep(.el-button--primary:hover) {
+  background-color: #66b1ff;
+  border-color: #66b1ff;
+}
+
+/* 表格样式 */
+:deep(.el-table) {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+
+:deep(.el-table th) {
+  background-color: #f8f8f9 !important;
+  color: rgb(80 78 78) !important;
+  font-weight: 600 !important;
+  font-size: 14px;
+}
+
+:deep(.el-table td) {
+  font-size: 14px;
+  color: #606266;
+}
+
+/* 分页样式 */
+.paging-operation {
+  padding: 10px;
+  width: 100%;
   display: flex;
   justify-content: flex-end;
 }
 
-.pagination-container {
-  margin-top: 20px;
-  text-align: right;
+/* 操作按钮样式 */
+.operation-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  flex-wrap: nowrap;
 }
 
+.operation-buttons .el-button {
+  margin: 0;
+}
+
+/* 表格链接样式 */
+.table-column-link {
+  color: #409EFF;
+  text-decoration: none;
+}
+
+.table-column-link:hover {
+  color: #66b1ff;
+}
+
+.device-status-icon {
+  margin-right: 5px;
+}
+
+.online-icon {
+  color: #67C23A;
+}
+
+.offline-icon {
+  color: #F56C6C;
+}
+
+/* 对话框样式 */
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
 }
-</style> 
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .main-operator-block {
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  
+  .search-block {
+    width: 100%;
+    min-width: auto;
+    flex-wrap: wrap;
+  }
+  
+  .left-button {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  
+.search-item .el-input,
+.search-item .el-select,
+.search-item .el-date-picker  {
+  width: 100%;
+}
+.date-range-picker {
+  width: 390px; /* 两个输入框的宽度加上间距 */
+}
+
+
+}
+
+@media (max-width: 768px) {
+  .search-item {
+    margin-bottom: 10px;
+  }
+  
+  .search-item .el-input,
+  .search-item .el-select {
+    width: 100%;
+  }
+  .search-item .el-date-picker{
+    width: 100%;
+  }
+  
+  .query-button-group {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+  .date-range-picker {
+  width: 390px; /* 两个输入框的宽度加上间距 */
+}
+
+}
+
+
+
+</style>

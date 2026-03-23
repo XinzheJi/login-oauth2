@@ -1,128 +1,115 @@
 <template>
   <div class="alarm-manage-container">
-    <el-card class="box-card">
-      <template #header>
-        <div class="card-header">
-          <h3>告警管理</h3>
-          <el-button type="primary" @click="refreshAlarms">刷新</el-button>
-        </div>
-      </template>
+    <h2 class="page-title" style="font-weight: normal;">告警管理</h2>
+    
+    <!-- 主操作区 -->
+    <div class="main-operator-block">
+      <!-- 左侧操作按钮 -->
+      <div class="left-button">
+        <!-- <el-button type="primary" size="default" @click="refreshAlarms">
+          刷新
+        </el-button> -->
+        <el-button type="primary" size="default" @click="$router.push('/power-alarm-statistics')">告警统计</el-button>
+      </div>
       
       <!-- 搜索区域 -->
-      <el-form :model="queryParams" label-width="100px" class="search-form">
-        <el-row :gutter="24">
-          <el-col :span="6">
-            <el-form-item label="设备名称">
-              <el-input v-model="queryParams.deviceName" placeholder="请输入设备名称" clearable></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="设备IP">
-              <el-input v-model="queryParams.ipAddress" placeholder="请输入设备IP" clearable></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="设备位置">
-              <el-input v-model="queryParams.location" placeholder="请输入设备位置" clearable></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="告警类型">
-              <el-select v-model="queryParams.alarmType" placeholder="请选择告警类型" clearable style="width:100%">
-                <el-option v-for="item in alarmTypeOptions" :key="item.code" :label="item.name" :value="item.name"></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="24">
-          <el-col :span="6">
-            <el-form-item label="告警级别">
-              <el-select v-model="queryParams.alarmLevel" placeholder="请选择告警级别" clearable style="width:100%">
-                <el-option v-for="item in alarmLevelOptions" :key="item.code" :label="item.name" :value="item.name"></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="处理状态">
-              <el-select v-model="queryParams.isProcessed" placeholder="请选择处理状态" clearable style="width:100%">
-                <el-option label="未处理" :value="false"></el-option>
-                <el-option label="已处理" :value="true"></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="告警时间">
-              <el-date-picker
-                v-model="dateRange"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                :default-time="['00:00:00', '23:59:59']"
-                style="width:100%"
-              ></el-date-picker>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="24" style="text-align: right">
-            <el-button type="primary" @click="handleQuery">查询</el-button>
-            <el-button @click="resetQuery">重置</el-button>
-            <el-button type="info" @click="$router.push('/power-alarm-statistics')">告警统计</el-button>
-          </el-col>
-        </el-row>
-      </el-form>
+      <div class="search-area">
+        <!-- 第一行：四个输入组件 -->
+        <div class="search-row">
+          <el-input v-model="queryParams.deviceName" class="search-item" placeholder="请输入设备名称" clearable></el-input>
+          <el-input v-model="queryParams.ipAddress" class="search-item" placeholder="请输入设备IP" clearable></el-input>
+          <el-input v-model="queryParams.location" class="search-item" placeholder="请输入设备位置" clearable></el-input>
+          <el-select v-model="queryParams.alarmType" class="search-item" placeholder="请选择告警类型" clearable>
+            <el-option v-for="item in alarmTypeOptions" :key="item.code" :label="item.name" :value="item.name"></el-option>
+          </el-select>
+        </div>
+        
+        <!-- 第二行：告警级别、处理状态、日期选择器 -->
+        <div class="search-row">
+          <el-select v-model="queryParams.alarmLevel" class="search-item" placeholder="请选择告警级别" clearable>
+            <el-option v-for="item in alarmLevelOptions" :key="item.code" :label="item.name" :value="item.name"></el-option>
+          </el-select>
+          <el-select v-model="queryParams.isProcessed" class="search-item" placeholder="请选择处理状态" clearable>
+            <el-option label="未处理" :value="false"></el-option>
+            <el-option label="已处理" :value="true"></el-option>
+          </el-select>
+          <el-date-picker
+            v-model="dateRange"
+            class="search-item date-range-picker"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :default-time="['00:00:00', '23:59:59']">
+          </el-date-picker>
+        </div>
+        
+        <!-- 第三行：查询和重置按钮 -->
+        <div class="button-row">
+          <div class="query-button-group">
+            <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
+          </div>
+        </div>
+      </div>
+    </div>
       
       <!-- 告警表格 -->
       <el-table
         v-loading="loading"
         :data="alarmList"
+        border
         stripe
+        size="medium"
+        :header-cell-style="{background:'#f8f8f9',color:'rgb(80 78 78)'}"
         style="width: 100%; margin-top: 20px"
+        @sort-change="handleSortChange"
       >
-        <el-table-column prop="deviceName" label="设备名称" width="150"></el-table-column>
-        <el-table-column prop="ipAddress" label="设备IP" width="120"></el-table-column>
-        <el-table-column prop="location" label="设备位置" width="150"></el-table-column>
-        <el-table-column prop="monitorName" label="告警类型" width="150"></el-table-column>
-        <el-table-column label="告警级别" width="100">
+        <el-table-column type="index" label="序号" align="center" width="60" />
+        <el-table-column prop="deviceName" label="设备名称" width="150" align="center" sortable="custom"></el-table-column>
+        <el-table-column prop="ipAddress" label="设备IP" width="150" align="center" sortable="custom"></el-table-column>
+        <el-table-column prop="location" label="设备位置" width="150" align="center"></el-table-column>
+        <el-table-column prop="monitorName" label="告警类型" width="150" align="center"></el-table-column>
+        <el-table-column prop="alarmLevel" label="告警级别" width="120" align="center" sortable="custom">
           <template #default="scope">
-            <el-tag
-              :type="getAlarmLevelType(scope.row.alarmLevel)"
-              :style="{ color: '#fff', backgroundColor: getAlarmLevelColor(scope.row.alarmLevel) }"
-            >{{ scope.row.alarmLevel }}</el-tag>
+            <span :style="{color: getAlarmLevelColor(scope.row.alarmLevel)}">
+              {{ scope.row.alarmLevel }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="alarmDesc" label="告警描述" min-width="200"></el-table-column>
-        <el-table-column prop="collectTime" label="告警时间" width="180"></el-table-column>
-        <el-table-column label="处理状态" width="100">
+        <el-table-column prop="alarmDesc" label="告警描述" min-width="200" align="center"></el-table-column>
+        <el-table-column prop="collectTime" label="告警时间" width="180" align="center" sortable="custom"></el-table-column>
+        <el-table-column prop="isProcessed" label="处理状态" width="120" align="center" sortable="custom">
           <template #default="scope">
-            <el-tag :type="scope.row.isProcessed ? 'success' : 'danger'">
+            <span :style="{color: scope.row.isProcessed ? '#67C23A' : '#F56C6C'}">
               {{ scope.row.isProcessed ? '已处理' : '未处理' }}
-            </el-tag>
+            </span>
           </template>
         </el-table-column>
-        <el-table-column fixed="right" label="操作" width="180">
+        <el-table-column fixed="right" label="操作" width="180px" align="center">
           <template #default="scope">
-            <el-button
-              link
-              type="primary"
-              size="small"
-              @click="handleViewDetail(scope.row)"
-            >详情</el-button>
-            <el-button
-              v-if="!scope.row.isProcessed"
-              link
-              type="primary"
-              size="small"
-              @click="handleProcess(scope.row)"
-            >处理</el-button>
+            <div class="operation-buttons">
+              <el-button
+                link
+                type="primary"
+                size="small"
+                @click="handleViewDetail(scope.row)"
+              >详情</el-button>
+              <el-button
+                v-if="!scope.row.isProcessed"
+                link
+                type="primary"
+                size="small"
+                @click="handleProcess(scope.row)"
+              >处理</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
       
       <!-- 分页 -->
-      <div class="pagination">
+      <div class="paging-operation">
         <el-pagination
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
@@ -133,7 +120,7 @@
           :total="total"
         ></el-pagination>
       </div>
-    </el-card>
+
     
     <!-- 告警处理对话框 -->
     <el-dialog
@@ -182,6 +169,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAlarmList, getAlarmTypes, getAlarmLevels, processAlarm } from '../api/powerAlarm'
+import { Search, RefreshLeft } from '@element-plus/icons-vue'
 
 export default {
   name: 'PowerAlarmManageView',
@@ -454,27 +442,60 @@ export default {
       fetchAlarmLevels()
     })
     
-    return {
-      loading,
-      alarmList,
-      total,
-      queryParams,
-      dateRange,
-      processDialogVisible,
-      processForm,
-      alarmTypeOptions,
-      alarmLevelOptions,
-      getAlarmLevelType,
-      getAlarmLevelColor,
-      refreshAlarms,
-      handleQuery,
-      resetQuery,
-      handleCurrentChange,
-      handleSizeChange,
-      handleViewDetail,
-      handleProcess,
-      submitProcess
-    }
+    // 处理表格排序
+        const handleSortChange = (column) => {
+          const { prop, order } = column;
+          if (!prop || !order) return;
+          
+          // 前端排序
+          alarmList.value.sort((a, b) => {
+            let aValue = a[prop];
+            let bValue = b[prop];
+            
+            // 处理日期类型
+            if (prop === 'collectTime') {
+              aValue = new Date(aValue).getTime();
+              bValue = new Date(bValue).getTime();
+            }
+            
+            // 处理字符串类型
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+              aValue = aValue.toLowerCase();
+              bValue = bValue.toLowerCase();
+            }
+            
+            if (order === 'ascending') {
+              return aValue > bValue ? 1 : -1;
+            } else {
+              return aValue < bValue ? 1 : -1;
+            }
+          });
+        }
+        
+        return {
+          loading,
+          alarmList,
+          total,
+          queryParams,
+          dateRange,
+          processDialogVisible,
+          processForm,
+          alarmTypeOptions,
+          alarmLevelOptions,
+          getAlarmLevelType,
+          getAlarmLevelColor,
+          refreshAlarms,
+          handleQuery,
+          resetQuery,
+          handleCurrentChange,
+          handleSizeChange,
+          handleViewDetail,
+          handleProcess,
+          submitProcess,
+          handleSortChange,
+          Search,
+          RefreshLeft
+        }
   }
 }
 </script>
@@ -483,16 +504,137 @@ export default {
 .alarm-manage-container {
   padding: 20px;
 }
-.card-header {
+
+/* 页面标题样式 */
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+/* 主操作区样式 */
+.main-operator-block {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  width: 100%;
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.left-button {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: -0px;
+}
+
+.left-button .el-button {
+  margin: 0;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: flex-start;
+}
+
+.search-item {
+  width: 190px;
+}
+
+.search-item .el-input,
+.search-item .el-select,
+.search-item .el-date-picker {
+  width: 100%;
+}
+
+/* 搜索区域样式 */
+.search-area {
+  margin-top: 0;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
   align-items: center;
 }
-.search-form {
-  margin-bottom: 20px;
+
+.search-item {
+  width: 190px;
 }
-.pagination {
-  margin-top: 20px;
-  text-align: right;
+
+.date-range-picker {
+  width: 390px; /* 两个输入框的宽度加上间距 */
 }
-</style> 
+
+.search-item .el-input,
+.search-item .el-select,
+.search-item .el-date-picker {
+  width: 100%;
+}
+
+.query-button-group {
+  display: flex;
+  gap: 5px;
+}
+
+.button-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.paging-operation {
+  padding: 10px;
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 表格样式 */
+:deep(.el-table) {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+
+:deep(.el-table th) {
+  font-weight: 600 !important;
+  font-size: 14px;
+  text-align: center;
+}
+
+:deep(.el-table td) {
+  font-size: 14px;
+  color: #606266;
+  text-align: center;
+}
+
+:deep(.el-table tr:nth-child(even) td) {
+  background-color: #fafafa;
+}
+
+:deep(.el-table tr:hover td) {
+  background-color: #ecf5ff;
+}
+
+/* 操作按钮样式 */
+.operation-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.operation-buttons .el-button {
+  margin: 0;
+}
+</style>

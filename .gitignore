@@ -1,5 +1,7 @@
 HELP.md
 target/
+.DS_Store
+.git-index-tmp*
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -33,3 +35,19 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# 本地HTTP客户端环境变量（可能包含令牌/密钥），不提交
+http-client.env.json
+
+# Docker 镜像/离线包（体积大），不提交
+docker-images/
+docker-images.zip
+
+# 本地脚本（按需自用），不提交
+build-backend-image.sh
+export_tdengine.sh
+export_tdengine_inner.sh
+import_sql_remote.sh
+import_sql_ssh.sh
+import_sql_via_docker.sh
+prepare-base-images.sh

@@ -14,7 +14,8 @@ export default {
   },
   data() {
     return {
-      dashboardUrl: 'http://172.30.154.32:3000'
+      // 默认走同源 /screen/（推荐 nginx 反代）；需要跨域时用 VUE_APP_DASHBOARD_URL 覆盖（编译期变量）
+      dashboardUrl: process.env.VUE_APP_DASHBOARD_URL || '/screen/'
     }
   },
   mounted() {

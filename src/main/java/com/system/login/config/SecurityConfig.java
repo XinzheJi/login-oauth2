@@ -1,7 +1,11 @@
 package com.system.login.config;
 
+import com.system.ai.security.AiApiKeyAuthenticationFilter;
+import com.system.ai.security.AiRateLimitFilter;
 import com.system.login.security.JwtAuthenticationFilter;
 import com.system.login.security.tenant.TenantFilter;
+import com.system.login.security.TokenStatusFilter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,11 +32,21 @@ import org.springframework.core.annotation.Order;
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final TenantFilter tenantFilter;
+    private final TokenStatusFilter tokenStatusFilter;
+    private final AiApiKeyAuthenticationFilter aiApiKeyAuthenticationFilter;
+    private final AiRateLimitFilter aiRateLimitFilter;
 
     @Autowired
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, TenantFilter tenantFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          TenantFilter tenantFilter,
+                          TokenStatusFilter tokenStatusFilter,
+                          AiApiKeyAuthenticationFilter aiApiKeyAuthenticationFilter,
+                          AiRateLimitFilter aiRateLimitFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.tenantFilter = tenantFilter;
+        this.tokenStatusFilter = tokenStatusFilter;
+        this.aiApiKeyAuthenticationFilter = aiApiKeyAuthenticationFilter;
+        this.aiRateLimitFilter = aiRateLimitFilter;
     }
 
     @Bean
@@ -42,6 +56,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        // 允许异步/错误分派，避免 WebAsyncTask 二次分派被误判为未认证
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         // 登录接口不需要认证
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/oauth2/**").permitAll()
@@ -58,6 +74,12 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, AnonymousAuthenticationFilter.class)
                 // 添加租户过滤器
                 .addFilterBefore(tenantFilter, UsernamePasswordAuthenticationFilter.class)
+                // 附加令牌状态信息
+                .addFilterAfter(tokenStatusFilter, JwtAuthenticationFilter.class)
+                // AI接口支持内部API Key鉴权（无JWT场景）
+                .addFilterAfter(aiApiKeyAuthenticationFilter, JwtAuthenticationFilter.class)
+                // AI接口防滥用（限流/审计）
+                .addFilterAfter(aiRateLimitFilter, AiApiKeyAuthenticationFilter.class)
                 // 添加JWT认证过滤器，确保在AnonymousAuthenticationFilter之前执行
 
                 .build();

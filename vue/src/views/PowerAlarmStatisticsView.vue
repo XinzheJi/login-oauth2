@@ -3,30 +3,34 @@
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
-          <h3>告警统计分析</h3>
+          <h3 style="font-weight: normal; font-size: 18px;">告警统计分析</h3>
           <el-button @click="$router.push('/power-alarms')" plain>返回告警列表</el-button>
         </div>
       </template>
       
       <!-- 时间范围选择 -->
-      <div class="date-range-select">
-        <el-form inline>
-          <el-form-item label="统计时间范围">
-            <el-date-picker
-              v-model="dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              :default-time="['00:00:00', '23:59:59']"
-            ></el-date-picker>
-          </el-form-item>
-          <el-form-item>
+      <div class="search-area">
+        <div class="search-row" style="justify-content: flex-end;">
+          <div style="width: 25%; margin-right: 10px;">
+             <el-date-picker
+            v-model="dateRange"
+            class="search-item date-range-picker"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD">
+          </el-date-picker>
+          </div>
+        </div>
+        
+        <div class="button-row" >
+          <div class="query-button-group">
             <el-button type="primary" @click="fetchStatistics">统计</el-button>
             <el-button @click="resetDateRange">重置</el-button>
-          </el-form-item>
-        </el-form>
+          </div>
+        </div>
       </div>
       
       <!-- 数据卡片 -->
@@ -559,8 +563,37 @@ export default {
   justify-content: space-between;
   align-items: center;
 }
-.date-range-select {
+
+.card-header h3 {
+  font-weight: normal;
+}
+/* 搜索区域样式 */
+.search-area {
+  margin-top: 0;
   margin-bottom: 20px;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.date-range-picker {
+  width: 390px;
+}
+
+.query-button-group {
+  display: flex;
+  gap: 5px;
+}
+
+.button-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 .statistics-cards {
   margin-bottom: 20px;
@@ -599,4 +632,4 @@ export default {
   height: 300px;
   width: 100%;
 }
-</style> 
+</style>

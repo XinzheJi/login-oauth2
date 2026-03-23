@@ -1,9 +1,17 @@
 const { defineConfig } = require('@vue/cli-service')
 module.exports = defineConfig({
   transpileDependencies: true,
+  lintOnSave: true, // 启用ESLint检查
+  configureWebpack: {
+    resolve: {
+      alias: {
+        '@': require('path').resolve(__dirname, 'src')
+      }
+    }
+  },
   // 开发环境API代理配置
   devServer: {
-    host: 'localhost', // 使用localhost避免IP地址解析问题
+    host: '127.0.0.1', // 使用localhost避免IP地址解析问题
     port: 8082, // 明确指定前端开发服务器端口
     https: false, // 确保使用HTTP而不是HTTPS
     open: false, // 启动时不自动打开浏览器

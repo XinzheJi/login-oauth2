@@ -43,4 +43,14 @@ public class LoginResponse {
      * 登录方式 (local/sso)
      */
     private String loginMethod;
-} 
+
+    /**
+     * 令牌剩余有效期（秒）
+     */
+    private Long expiresIn;
+
+    /**
+     * 令牌过期时间戳（毫秒）
+     */
+    private Long expiresAt;
+}

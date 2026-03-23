@@ -3,7 +3,7 @@
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
-          <h3>告警详情</h3>
+          <h3 style="font-weight: normal;">告警详情</h3>
           <div>
             <el-button @click="$router.back()" plain>返回</el-button>
             <el-button v-if="!alarmDetail?.isProcessed" type="primary" @click="handleProcess">处理告警</el-button>
@@ -12,16 +12,15 @@
       </template>
       
       <div v-loading="loading">
-        <el-descriptions title="基本信息" :column="2" border>
+        <el-descriptions title="基本信息" :column="2" border style="font-weight: normal;">
           <el-descriptions-item label="设备名称">{{ alarmDetail?.deviceName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="设备IP">{{ alarmDetail?.ipAddress || '-' }}</el-descriptions-item>
           <el-descriptions-item label="设备位置">{{ alarmDetail?.location || '-' }}</el-descriptions-item>
           <el-descriptions-item label="告警类型">{{ alarmDetail?.monitorName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="告警级别">
-            <el-tag
-              :type="getAlarmLevelType(alarmDetail?.alarmLevel)"
-              :style="{ color: '#fff', backgroundColor: getAlarmLevelColor(alarmDetail?.alarmLevel) }"
-            >{{ alarmDetail?.alarmLevel || '-' }}</el-tag>
+            <span :style="{color: getAlarmLevelColor(alarmDetail?.alarmLevel)}">
+              {{ alarmDetail?.alarmLevel || '-' }}
+            </span>
           </el-descriptions-item>
           <el-descriptions-item label="告警时间">{{ alarmDetail?.collectTime || '-' }}</el-descriptions-item>
           <el-descriptions-item label="告警描述" :span="2">{{ alarmDetail?.alarmDesc || '-' }}</el-descriptions-item>
@@ -60,6 +59,17 @@
         </div>
       </div>
     </el-card>
+    
+    <!-- 设备实时监控区域 - 独立卡片 -->
+    <PowerDeviceMonitor
+      :realtime-data="monitorData.realtimeData"
+      :cycle-count="monitorData.cycleCount"
+      :battery-capacity="monitorData.batteryCapacity"
+      :charge-current-data="monitorData.chargeCurrentData"
+      :load-data="monitorData.loadData"
+      :charge-discharge-data="monitorData.chargeDischargeData"
+      :device-status-data="monitorData.deviceStatusData"
+    />
     
     <!-- 告警处理对话框 -->
     <el-dialog
@@ -108,9 +118,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAlarmDetail, processAlarm } from '../api/powerAlarm'
+import PowerDeviceMonitor from '@/components/common/PowerDeviceMonitor.vue'
 
 export default {
   name: 'PowerAlarmDetailView',
+  components: {
+    PowerDeviceMonitor
+  },
   props: {
     id: {
       type: String,
@@ -132,6 +146,62 @@ export default {
       resolved: false,
       remark: ''
     })
+    
+    // 设备监控数据（mock数据，后续可从接口获取）
+    const monitorData = reactive({
+      realtimeData: {
+        acVoltage: 'AC230V',
+        dcVoltage: 'DC24V',
+        loadCurrent: '340mA',
+        batteryLevel: '100%'
+      },
+      cycleCount: 150,
+      batteryCapacity: {
+        capacity1: '20000mAh',
+        capacity2: '20000mAh'
+      },
+      chargeCurrentData: [],
+      loadData: [],
+      chargeDischargeData: {
+        charge: [],
+        discharge: []
+      },
+      deviceStatusData: {
+        warningCount: 2,
+        faultCount: 1,
+        alarmRecoverCount: 5,
+        normalCount: 10
+      }
+    })
+    
+    // 生成示例监控数据
+    const generateMonitorData = () => {
+      // 充电电流数据（1-5月）
+      const months = ['1月', '2月', '3月', '4月', '5月']
+      monitorData.chargeCurrentData = months.map(month => ({
+        month,
+        value: Math.floor(Math.random() * 500) + 200
+      }))
+      
+      // 24小时负载数据
+      const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`)
+      monitorData.loadData = hours.map(hour => ({
+        hour,
+        value: Math.floor(Math.random() * 100) + 50
+      }))
+      
+      // 充放电数据
+      monitorData.chargeDischargeData = {
+        charge: hours.map(hour => ({
+          hour,
+          value: Math.floor(Math.random() * 200) + 100
+        })),
+        discharge: hours.map(hour => ({
+          hour,
+          value: Math.floor(Math.random() * 150) + 50
+        }))
+      }
+    }
     
     // 获取告警详情
     const fetchAlarmDetail = async () => {
@@ -221,6 +291,7 @@ export default {
     
     onMounted(() => {
       fetchAlarmDetail()
+      generateMonitorData()
     })
     
     // 根据告警级别获取标签类型
@@ -261,6 +332,7 @@ export default {
       alarmDetail,
       processDialogVisible,
       processForm,
+      monitorData,
       getAlarmLevelType,
       getAlarmLevelColor,
       handleProcess,
@@ -285,4 +357,16 @@ export default {
 .el-descriptions {
   margin-bottom: 20px;
 }
-</style> 
+
+:deep(.el-descriptions__title) {
+  font-weight: normal !important;
+}
+
+:deep(.el-descriptions__label) {
+  font-weight: normal !important;
+}
+
+:deep(.el-descriptions__content) {
+  font-weight: normal !important;
+}
+</style>

@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: mock-system-a
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 1  # 使用数据库1，避免与系统B冲突
+      timeout: 1800000
+
+# 模拟OAuth2服务配置
+mock:
+  oauth:
+    token:
+      value: mocked-access-token-123456
+      expires-in: 3600
+    client-id: b-system-client
+    client-secret: b-system-secret
+    
+# 日志配置
+logging:
+  level:
+    com.mock.a: debug 

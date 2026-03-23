@@ -11,7 +11,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
+import java.nio.charset.StandardCharsets;
+import java.net.URLEncoder;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.util.StringUtils;
 
 /**
  * 混合认证控制器
@@ -71,7 +75,9 @@ public class HybridAuthController {
             @RequestParam(required = false) String error,
             @RequestParam(name = "error_description", required = false) String errorDescription) {
         
-        log.info("接收到OAuth2回调: code={}, state={}, error={}", code, state, error);
+        // code/state 属于敏感信息，避免落日志
+        log.info("接收到OAuth2回调: code存在={}, state存在={}, error={}",
+                StringUtils.hasText(code), StringUtils.hasText(state), error);
 
         try {
             OAuth2CallbackRequest request = new OAuth2CallbackRequest();
@@ -82,8 +88,10 @@ public class HybridAuthController {
 
             if (error != null) {
                 // 授权失败，重定向到前端登录页面并显示错误
-                String redirectUrl = frontendCallbackUrl + "?error=" + error + 
-                                   "&error_description=" + (errorDescription != null ? errorDescription : "授权失败");
+                String redirectUrl = buildCallbackUrl(Map.of(
+                        "error", error,
+                        "error_description", errorDescription != null ? errorDescription : "授权失败"
+                ));
                 return new RedirectView(redirectUrl);
             }
 
@@ -91,14 +99,20 @@ public class HybridAuthController {
             LoginResponse loginResponse = hybridAuthService.processOAuth2Callback(request);
             
             // 成功登录，重定向到前端并携带JWT令牌
-            String redirectUrl = frontendCallbackUrl + "?token=" + loginResponse.getToken() + 
-                               "&method=sso&username=" + loginResponse.getUsername();
+            Map<String, String> params = new LinkedHashMap<>();
+            params.put("token", loginResponse.getToken());
+            params.put("method", "sso");
+            params.put("username", loginResponse.getUsername());
+            String redirectUrl = buildCallbackUrl(params);
             
             return new RedirectView(redirectUrl);
 
         } catch (Exception e) {
             log.error("处理OAuth2回调失败", e);
-            String redirectUrl = frontendCallbackUrl + "?error=callback_failed&error_description=" + e.getMessage();
+            String redirectUrl = buildCallbackUrl(Map.of(
+                    "error", "callback_failed",
+                    "error_description", e.getMessage() != null ? e.getMessage() : "SSO回调失败"
+            ));
             return new RedirectView(redirectUrl);
         }
     }
@@ -109,7 +123,9 @@ public class HybridAuthController {
      */
     @PostMapping("/oauth2/callback")
     public ResponseEntity<LoginResponse> handleOAuth2CallbackPost(@RequestBody OAuth2CallbackRequest request) {
-        log.info("接收到OAuth2回调POST请求: code={}, state={}", request.getCode(), request.getState());
+        // code/state 属于敏感信息，避免落日志
+        log.info("接收到OAuth2回调POST请求: code存在={}, state存在={}",
+                StringUtils.hasText(request.getCode()), StringUtils.hasText(request.getState()));
 
         try {
             if (request.getError() != null) {
@@ -139,8 +155,36 @@ public class HybridAuthController {
             return new RedirectView(response.getAuthorizeUrl());
         } catch (Exception e) {
             log.error("启动SSO登录失败", e);
-            String redirectUrl = frontendCallbackUrl + "?error=sso_init_failed&error_description=" + e.getMessage();
+            String redirectUrl = buildCallbackUrl(Map.of(
+                    "error", "sso_init_failed",
+                    "error_description", e.getMessage() != null ? e.getMessage() : "SSO初始化失败"
+            ));
             return new RedirectView(redirectUrl);
         }
+    }
+
+    private String buildCallbackUrl(Map<String, String> queryParams) {
+        if (queryParams == null || queryParams.isEmpty()) {
+            return frontendCallbackUrl;
+        }
+        StringBuilder builder = new StringBuilder(frontendCallbackUrl);
+        char separator = frontendCallbackUrl.contains("?") ? '&' : '?';
+        for (Map.Entry<String, String> entry : queryParams.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (key == null || value == null) {
+                continue;
+            }
+            builder.append(separator)
+                    .append(urlEncode(key))
+                    .append("=")
+                    .append(urlEncode(value));
+            separator = '&';
+        }
+        return builder.toString();
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

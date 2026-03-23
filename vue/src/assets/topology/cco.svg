@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- CCO Body -->
+  <rect x="8" y="12" width="48" height="40" rx="2" ry="2" fill="#409EFF" stroke="#303133" stroke-width="2"/>
+  
+  <!-- Screen -->
+  <rect x="14" y="18" width="36" height="12" fill="#E4E7ED" />
+  <text x="32" y="27" font-family="Arial" font-size="6" text-anchor="middle" fill="#606266">CONCENTRATOR</text>
+  
+  <!-- Buttons/Indicators -->
+  <circle cx="16" cy="40" r="3" fill="#fff" />
+  <circle cx="26" cy="40" r="3" fill="#fff" />
+  <circle cx="36" cy="40" r="3" fill="#fff" />
+  <circle cx="46" cy="40" r="3" fill="#fff" />
+  
+  <!-- Antenna Stub -->
+  <rect x="28" y="4" width="8" height="8" fill="#303133" />
+</svg>

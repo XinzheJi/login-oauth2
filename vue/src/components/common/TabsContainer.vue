@@ -33,30 +33,31 @@ export default {
     }
   },
   mounted() {
-    // 初始化时添加首页标签
+    // 初始化时添加综合监控标签
     this.addTab({
-      id: '/',
-      title: '首页',
+      id: '/dashboard',
+      title: '综合监控',
+      path: '/dashboard',
       closable: false,
       component: null
     })
-    this.activeTab = '/'
+    this.activeTab = '/dashboard'
     
     // 监听路由变化，自动添加标签
     this.$watch('$route', (newRoute) => {
-      console.log('路由变化:', newRoute.fullPath)
+      console.log('路由变化:', newRoute.path)
       
-      // 更新激活标签，统一使用 fullPath 作为唯一键
-      this.activeTab = newRoute.fullPath
-      this.$emit('update:modelValue', newRoute.fullPath)
+      // 更新激活标签
+      this.activeTab = newRoute.path
+      this.$emit('update:modelValue', newRoute.path)
       
       // 检查标签是否存在，如果不存在则添加
-      const existingTab = this.tabs.find(tab => tab.id === newRoute.fullPath)
-      if (!existingTab && newRoute.path !== '/' && newRoute.path !== '/login') {
-        console.log('添加新标签:', newRoute.fullPath)
+      const existingTab = this.tabs.find(tab => tab.id === newRoute.path)
+      if (!existingTab && newRoute.path !== '/' && newRoute.path !== '/login' && newRoute.path !== '/dashboard') {
+        console.log('添加新标签:', newRoute.path)
         this.addTabFromRoute(newRoute)
       } else if (existingTab) {
-        console.log('激活已存在的标签:', newRoute.fullPath)
+        console.log('激活已存在的标签:', newRoute.path)
       }
     }, { immediate: true })
   },
@@ -65,7 +66,13 @@ export default {
       // 检查标签是否已存在
       const existingTab = this.tabs.find(t => t.id === tab.id)
       if (!existingTab) {
-        this.tabs.push(tab)
+        // 确保标签页对象包含path字段
+        const tabWithPath = {
+          ...tab,
+          path: tab.path || tab.id // 如果没有path，使用id作为path
+        }
+        this.tabs.push(tabWithPath)
+        console.log('添加标签页:', tabWithPath)
       }
       this.activeTab = tab.id
       this.$emit('update:modelValue', tab.id)
@@ -92,9 +99,9 @@ export default {
             this.activeTab = ''
             this.$emit('update:modelValue', '')
             
-            // 如果没有标签了，跳转到首页
+            // 如果没有标签了，跳转到综合监控
             if (this.$router) {
-              this.$router.push('/')
+              this.$router.push('/dashboard')
             }
           }
         }
@@ -102,44 +109,36 @@ export default {
     },
     
     handleTabClick(tabId) {
-      console.log('=== 标签点击开始 ===')
+      console.log('=== TabsContainer标签点击处理 ===')
       console.log('点击的标签ID:', tabId)
-      console.log('当前路由:', this.$route.fullPath)
+      console.log('当前路由:', this.$route.path)
       console.log('当前激活标签:', this.activeTab)
       
+      // 找到对应的标签页对象
+      const tab = this.tabs.find(t => t.id === tabId)
+      if (!tab) {
+        console.warn('未找到对应的标签页:', tabId)
+        return
+      }
+      
       // 如果点击的是当前激活的标签，不需要跳转
-      if (tabId === this.$route.fullPath) {
+      if (tabId === this.$route.path) {
         console.log('点击的是当前激活标签，无需跳转')
         return
       }
       
-      // 先执行路由跳转，再更新状态
-      if (this.$router) {
-        console.log('执行路由跳转:', tabId)
-        this.$router.push(tabId).then(() => {
-          console.log('路由跳转成功:', tabId)
-          // 路由跳转成功后更新激活状态
-          this.activeTab = tabId
-          this.$emit('update:modelValue', tabId)
-          this.$emit('tab-change', tabId)
-        }).catch(err => {
-          console.error('路由跳转失败:', err)
-          // 路由跳转失败时，不更新状态
-        })
-      } else {
-        console.error('Router 实例不存在')
-        // 如果没有 router，直接更新状态
-        this.activeTab = tabId
-        this.$emit('update:modelValue', tabId)
-        this.$emit('tab-change', tabId)
-      }
-      console.log('=== 标签点击结束 ===')
+      // 更新激活状态（路由跳转由TabItem组件处理）
+      this.activeTab = tabId
+      this.$emit('update:modelValue', tabId)
+      this.$emit('tab-change', tabId)
+      
+      console.log('=== TabsContainer标签点击处理完成 ===')
     },
     
     handleTabClose(tabId) {
-      // 检查是否为首页标签，首页标签不可关闭
-      if (tabId === '/') {
-        console.log('首页标签不可关闭')
+      // 检查是否为综合监控标签，综合监控标签不可关闭
+      if (tabId === '/dashboard') {
+        console.log('综合监控标签不可关闭')
         return
       }
       
@@ -149,13 +148,14 @@ export default {
     },
     
     addTabFromRoute(route) {
-      const tabId = route.fullPath
+      const tabId = route.path
       const tabTitle = this.getTabTitle(route)
       
       this.addTab({
         id: tabId,
         title: tabTitle,
-        closable: route.path !== '/',
+        path: tabId,
+        closable: tabId !== '/dashboard',
         component: null
       })
     },
@@ -164,8 +164,9 @@ export default {
       // 根据路由路径返回对应的标题
       const titleMap = {
         '/': '首页',
+        '/home': '系统概述',
         '/about': '关于',
-        '/dashboard': '数据大屏',
+        '/dashboard': '综合监控',
         '/users': '用户管理',
         '/roles': '角色管理',
         '/permissions': '权限管理',
@@ -177,11 +178,7 @@ export default {
         '/switch-list': '交换机管理',
         '/model-type': '设备型号管理',
         '/device-aging-fault': '设备老化与故障感知',
-        '/tabs-test': '标签页测试',
-        '/page-status': '页面状态检查',
-        '/tab-navigation-test': '标签页跳转测试',
-        '/simple-tab-test': '简单标签测试',
-        '/route-test': '路由测试'
+        '/page-status': '页面状态检查'
       }
       return titleMap[route.path] || route.meta?.title || route.name || '未知页面'
     }

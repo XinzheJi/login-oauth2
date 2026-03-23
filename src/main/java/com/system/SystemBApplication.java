@@ -12,10 +12,12 @@ import org.springframework.cache.annotation.EnableCaching;
  */
 @SpringBootApplication
 @EnableConfigurationProperties
-@MapperScan(basePackages = {"com.system.login.mapper", "com.system.powermanagement.mapper","com.system.trsmanagement.mapper", "com.system.equipmenttypemanagement.mapper"}, annotationClass = Mapper.class)
+@MapperScan(basePackages = {"com.system.**.mapper",}, annotationClass = Mapper.class)
 @EnableCaching
 public class SystemBApplication {
     public static void main(String[] args) {
         SpringApplication.run(SystemBApplication.class, args);
     }
-} 
+}
+
+

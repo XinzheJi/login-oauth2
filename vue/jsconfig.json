@@ -4,6 +4,10 @@
     "module": "esnext",
     "baseUrl": "./",
     "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
     "paths": {
       "@/*": [
         "src/*"
@@ -14,6 +18,19 @@
       "dom",
       "dom.iterable",
       "scripthost"
+    ],
+    "types": [
+      "vue",
+      "element-plus"
     ]
-  }
+  },
+  "include": [
+    "src/**/*",
+    "src/types/**/*",
+    "node_modules/element-plus/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

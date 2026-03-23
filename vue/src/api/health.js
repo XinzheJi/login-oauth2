@@ -3,7 +3,7 @@ import axios from 'axios'
 // 创建axios实例
 const request = axios.create({
   baseURL: '/api', // API基础URL
-  timeout: 10000, // 请求超时时间
+  timeout: 300000, // 请求超时时间（5分钟）
 })
 
 // 请求拦截器

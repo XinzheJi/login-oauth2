@@ -12,6 +12,8 @@ import com.system.login.service.security.JwtTokenService;
 import com.system.login.service.tenant.TenantService;
 import com.system.login.mapper.UserRoleMapper;
 import com.system.login.domain.entity.UserRole;
+import com.system.login.config.JwtConfig;
+import com.system.login.security.cache.UserDetailsCacheHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,9 +23,11 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -45,6 +49,9 @@ public class HybridAuthServiceImpl implements HybridAuthService {
     private final UserRoleMapper userRoleMapper;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final JwtConfig jwtConfig;
+    private final PasswordEncoder passwordEncoder;
+    private final UserDetailsCacheHelper userDetailsCacheHelper;
 
     @Value("${hybrid-auth.sso.client-id:b-system-client}")
     private String clientId;
@@ -79,7 +86,10 @@ public class HybridAuthServiceImpl implements HybridAuthService {
                                 UserDetailsService userDetailsService,
                                 StringRedisTemplate redisTemplate,
                                 TenantService tenantService,
-                                UserRoleMapper userRoleMapper) {
+                                UserRoleMapper userRoleMapper,
+                                JwtConfig jwtConfig,
+                                PasswordEncoder passwordEncoder,
+                                UserDetailsCacheHelper userDetailsCacheHelper) {
         this.userMapper = userMapper;
         this.jwtTokenService = jwtTokenService;
         this.userDetailsService = userDetailsService;
@@ -88,6 +98,9 @@ public class HybridAuthServiceImpl implements HybridAuthService {
         this.userRoleMapper = userRoleMapper;
         this.restTemplate = new RestTemplate();
         this.objectMapper = new ObjectMapper();
+        this.jwtConfig = jwtConfig;
+        this.passwordEncoder = passwordEncoder;
+        this.userDetailsCacheHelper = userDetailsCacheHelper;
     }
 
     @Override
@@ -108,7 +121,9 @@ public class HybridAuthServiceImpl implements HybridAuthService {
                 authorizationUri, responseType, clientId, redirectUri, scope, state
         );
 
-        log.info("生成SSO授权URL: {}", authorizeUrl);
+        // 避免在日志中输出包含 state 的完整URL（可能被用于绕过CSRF校验）
+        log.debug("生成SSO授权URL，authorizationUri={}, clientId={}, redirectUri={}, scope={}",
+                authorizationUri, clientId, redirectUri, scope);
 
         return SSOAuthorizeUrlResponse.builder()
                 .authorizeUrl(authorizeUrl)
@@ -119,7 +134,9 @@ public class HybridAuthServiceImpl implements HybridAuthService {
 
     @Override
     public LoginResponse processOAuth2Callback(OAuth2CallbackRequest request) {
-        log.info("处理OAuth2回调，code: {}, state: {}", request.getCode(), request.getState());
+        // code/state 属于敏感信息，避免落日志
+        log.info("处理OAuth2回调，code存在={}, state存在={}",
+                StringUtils.hasText(request.getCode()), StringUtils.hasText(request.getState()));
 
         // 检查是否有错误
         if (request.getError() != null) {
@@ -149,6 +166,8 @@ public class HybridAuthServiceImpl implements HybridAuthService {
             // 5. 生成JWT - 使用业务租户ID而不是数据库主键ID
             String businessTenantId = tenantService.getBusinessTenantIdByPrimaryKey(user.getTenantId());
             String jwt = jwtTokenService.generateToken(user, userDetails, businessTenantId);
+            long expiresIn = jwtConfig.getExpiration();
+            long expiresAt = System.currentTimeMillis() + expiresIn * 1000;
 
             log.info("SSO登录成功，用户: {}", user.getUsername());
 
@@ -159,6 +178,8 @@ public class HybridAuthServiceImpl implements HybridAuthService {
                     .userId(user.getId())
                     .tenantId(user.getTenantId())
                     .loginMethod("sso")
+                    .expiresIn(expiresIn)
+                    .expiresAt(expiresAt)
                     .build();
 
         } catch (Exception e) {
@@ -205,8 +226,13 @@ public class HybridAuthServiceImpl implements HybridAuthService {
             ResponseEntity<Map> response = restTemplate.postForEntity(tokenUri, request, Map.class);
             
             log.info("Token endpoint响应状态: {}", response.getStatusCode());
-            if (response.getBody() != null) {
-                log.info("Token endpoint响应体: {}", response.getBody());
+            if (log.isDebugEnabled() && response.getBody() != null) {
+                Map<String, Object> safeBody = new LinkedHashMap<>();
+                response.getBody().forEach((k, v) -> safeBody.put(String.valueOf(k), v));
+                maskTokenField(safeBody, "access_token");
+                maskTokenField(safeBody, "refresh_token");
+                maskTokenField(safeBody, "id_token");
+                log.debug("Token endpoint响应体(已脱敏): {}", safeBody);
             }
             
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -274,6 +300,9 @@ public class HybridAuthServiceImpl implements HybridAuthService {
             log.info("找到现有用户: {}, 更新用户信息", username);
             // 更新用户信息（同步系统A的最新数据）
             updateUserFromSSOInfo(existingUser, userInfo);
+            if (ensureLocalPassword(existingUser)) {
+                log.info("为SSO用户 {} 生成了随机本地密码", existingUser.getUsername());
+            }
             userMapper.updateById(existingUser);
             
             // 检查现有用户是否有角色，如果没有则分配默认角色
@@ -384,7 +413,8 @@ public class HybridAuthServiceImpl implements HybridAuthService {
         
         // 基础信息
         newUser.setUsername(userInfo.getPreferredUsername());
-        newUser.setPassword(""); // SSO用户不需要密码
+        // 为防止后续本地登录/密码校验，SSO用户仍需持久化一个加密密码
+        ensureLocalPassword(newUser);
         newUser.setStatus(userInfo.getStatus() != null ? userInfo.getStatus() : 1); // 默认启用
         newUser.setCreateTime(LocalDateTime.now());
         newUser.setUpdateTime(LocalDateTime.now());
@@ -397,6 +427,22 @@ public class HybridAuthServiceImpl implements HybridAuthService {
         updateUserDetailsFromSSO(newUser, userInfo);
         
         return newUser;
+    }
+
+    /**
+     * 确保用户拥有可用于本地认证的加密口令。
+     */
+    private boolean ensureLocalPassword(User user) {
+        if (user == null) {
+            return false;
+        }
+        if (StringUtils.hasText(user.getPassword())) {
+            return false;
+        }
+        String randomSecret = UUID.randomUUID().toString();
+        user.setPassword(passwordEncoder.encode(randomSecret));
+        userDetailsCacheHelper.evictUser(user);
+        return true;
     }
     
     /**
@@ -422,40 +468,75 @@ public class HybridAuthServiceImpl implements HybridAuthService {
      */
     private void updateUserDetailsFromSSO(User user, OAuth2UserInfo userInfo) {
         // 设置用户详细信息
-        if (userInfo.getName() != null) {
-            // 系统A的name字段是real_name，记录真实姓名
-            log.info("用户 {} 真实姓名: {}", user.getUsername(), userInfo.getName());
+        // 避免以 info 级别输出姓名/邮箱/手机等PII；如需排查问题请在 debug 下查看脱敏信息
+        if (StringUtils.hasText(userInfo.getName())) {
+            log.debug("用户 {} 同步了姓名信息", user.getUsername());
         }
-        
-        if (userInfo.getEmail() != null) {
-            log.info("用户 {} 邮箱: {}", user.getUsername(), userInfo.getEmail());
+
+        if (StringUtils.hasText(userInfo.getEmail())) {
+            log.debug("用户 {} 邮箱(脱敏): {}", user.getUsername(), maskEmail(userInfo.getEmail()));
         }
-        
-        if (userInfo.getPhone() != null) {
-            log.info("用户 {} 手机: {}", user.getUsername(), userInfo.getPhone());
+
+        if (StringUtils.hasText(userInfo.getPhone())) {
+            log.debug("用户 {} 手机(脱敏): {}", user.getUsername(), maskPhone(userInfo.getPhone()));
         }
         
         // 4A用户特殊处理
         if ("1".equals(userInfo.getIs4A())) {
-            log.info("用户 {} 是4A用户，4A_ID: {}, 组织ID: {}", 
-                user.getUsername(), userInfo.getFourAId(), userInfo.getOrgId());
+            // 避免输出4A用户的标识信息
+            log.debug("用户 {} 是4A用户", user.getUsername());
             // 可以在这里添加4A用户的特殊处理逻辑
         }
         
         // 角色信息处理
         if (userInfo.getRoleId() != null) {
-            log.info("用户 {} 在系统A中的角色ID: {}", user.getUsername(), userInfo.getRoleId());
+            log.debug("用户 {} 同步了系统A角色信息", user.getUsername());
             // 这里可以实现角色映射逻辑，将系统A的角色映射到系统B的角色
         }
         
         // 部门和岗位信息
         if (userInfo.getDeptId() != null) {
-            log.info("用户 {} 在系统A中的部门ID: {}", user.getUsername(), userInfo.getDeptId());
+            log.debug("用户 {} 同步了系统A部门信息", user.getUsername());
         }
         
         if (userInfo.getPostId() != null) {
-            log.info("用户 {} 在系统A中的岗位ID: {}", user.getUsername(), userInfo.getPostId());
+            log.debug("用户 {} 同步了系统A岗位信息", user.getUsername());
         }
+    }
+
+    private static void maskTokenField(Map<String, Object> body, String field) {
+        if (body == null || field == null) {
+            return;
+        }
+        if (body.containsKey(field) && body.get(field) != null) {
+            body.put(field, "***");
+        }
+    }
+
+    private static String maskEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            return "";
+        }
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 1) {
+            return "***";
+        }
+        String local = email.substring(0, atIndex);
+        String domain = email.substring(atIndex);
+        return local.charAt(0) + "***" + domain;
+    }
+
+    private static String maskPhone(String phone) {
+        if (!StringUtils.hasText(phone)) {
+            return "";
+        }
+        String digits = phone.trim();
+        if (digits.length() <= 4) {
+            return "***";
+        }
+        String prefix = digits.substring(0, Math.min(3, digits.length()));
+        String suffix = digits.substring(digits.length() - 2);
+        return prefix + "****" + suffix;
     }
     
     /**

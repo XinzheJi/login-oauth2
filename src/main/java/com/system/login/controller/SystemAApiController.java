@@ -31,7 +31,7 @@ public class SystemAApiController {
      * 获取系统A的受保护数据
      * 需要ROLE_USER角色才能访问
      */
-    @PreAuthorize("hasRole('ROLE_USER')")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
     @GetMapping("/protected-data")
     public ResponseEntity<Map> getProtectedData() {
         log.info("获取系统A受保护数据");

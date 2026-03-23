@@ -8,6 +8,8 @@ import com.system.login.domain.entity.User;
 import com.system.login.domain.vo.LoginRequest;
 import com.system.login.domain.vo.LoginResponse;
 import com.system.login.mapper.UserMapper;
+import com.system.login.config.JwtConfig;
+import com.system.login.security.cache.UserDetailsCacheHelper;
 import com.system.login.security.tenant.TenantContext;
 import com.system.login.service.security.JwtTokenService;
 import com.system.login.service.tenant.TenantService;
@@ -21,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * 用户服务实现类
@@ -36,17 +39,22 @@ public class UserService extends ServiceImpl<UserMapper, User> implements AuthSe
     private final AuthenticationManager authenticationManager;
     private final JwtTokenService jwtTokenService;
     private final TenantService tenantService;
+    private final JwtConfig jwtConfig;
+    private final UserDetailsCacheHelper userDetailsCacheHelper;
 
     @Autowired
     public UserService(UserMapper userMapper, PasswordEncoder passwordEncoder, RoleService roleService,
                        AuthenticationManager authenticationManager, JwtTokenService jwtTokenService,
-                       TenantService tenantService) {
+                       TenantService tenantService, JwtConfig jwtConfig,
+                       UserDetailsCacheHelper userDetailsCacheHelper) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;
         this.authenticationManager = authenticationManager;
         this.jwtTokenService = jwtTokenService;
         this.tenantService = tenantService;
+        this.jwtConfig = jwtConfig;
+        this.userDetailsCacheHelper = userDetailsCacheHelper;
     }
 
     /**
@@ -76,6 +84,10 @@ public class UserService extends ServiceImpl<UserMapper, User> implements AuthSe
         // 获取用户信息
         User user = userMapper.findByUsername(userDetails.getUsername());
 
+        if (!StringUtils.hasText(user.getPassword())) {
+            log.warn("UserService.login: 用户 {} 在数据库中的密码为空", user.getUsername());
+        }
+
         // 获取业务租户ID
         String businessTenantId = null;
         if (user.getTenantId() != null) {
@@ -89,6 +101,8 @@ public class UserService extends ServiceImpl<UserMapper, User> implements AuthSe
 
         // 生成JWT令牌
         String jwt = jwtTokenService.generateToken(user, userDetails, businessTenantId);
+        long expiresIn = jwtConfig.getExpiration();
+        long expiresAt = System.currentTimeMillis() + expiresIn * 1000;
 
 //        System.out.println("JWT令牌: " + jwt);
 
@@ -100,6 +114,8 @@ public class UserService extends ServiceImpl<UserMapper, User> implements AuthSe
                 .userId(user.getId())
                 .tenantId(user.getTenantId())
                 .loginMethod("local")
+                .expiresIn(expiresIn)
+                .expiresAt(expiresAt)
                 .build();
     }
 
@@ -135,6 +151,9 @@ public class UserService extends ServiceImpl<UserMapper, User> implements AuthSe
 
         // 保存用户
         boolean saved = super.save(user);
+        if (saved) {
+            userDetailsCacheHelper.evictUser(user);
+        }
 
         // 如果用户创建成功，自动分配普通用户角色（角色ID为2）
         if (saved) {
@@ -190,6 +209,7 @@ public class UserService extends ServiceImpl<UserMapper, User> implements AuthSe
         // 如果更新了密码，需要加密
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
+            userDetailsCacheHelper.evictUser(user);
         } else {
             // 如果没有提供密码，则不更新密码字段
             User existingUser = getById(user.getId());

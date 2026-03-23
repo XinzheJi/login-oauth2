@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Tower Structure -->
+  <path d="M32 8 L44 56 L20 56 Z" fill="none" stroke="#606266" stroke-width="3" stroke-linejoin="round"/>
+  <line x1="28" y1="24" x2="36" y2="24" stroke="#606266" stroke-width="2"/>
+  <line x1="24" y1="40" x2="40" y2="40" stroke="#606266" stroke-width="2"/>
+  
+  <!-- Signal Waves -->
+  <path d="M12 28 Q4 20 12 12" fill="none" stroke="#E6A23C" stroke-width="3" stroke-linecap="round" />
+  <path d="M16 24 Q12 20 16 16" fill="none" stroke="#E6A23C" stroke-width="3" stroke-linecap="round" />
+  
+  <path d="M52 28 Q60 20 52 12" fill="none" stroke="#E6A23C" stroke-width="3" stroke-linecap="round" />
+  <path d="M48 24 Q52 20 48 16" fill="none" stroke="#E6A23C" stroke-width="3" stroke-linecap="round" />
+  
+  <!-- Base Station -->
+  <rect x="16" y="56" width="32" height="6" fill="#303133" />
+</svg>

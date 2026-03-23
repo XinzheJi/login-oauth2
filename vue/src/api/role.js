@@ -21,7 +21,7 @@ export function getAllRoles() {
       url: '/roles',
       method: 'get',
       params: {
-        userId: JSON.parse(localStorage.getItem('user')).id
+        userId: JSON.parse(sessionStorage.getItem('user')).id
       }
     }).then(response => {
       resolve(response);

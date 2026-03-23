@@ -9,10 +9,18 @@ import { setupPermission } from './directives/permission'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import { markUserActivity } from './api/auth'
 
 // 引入公共组件
 import CommonComponents from './components/common'
 import { AppLayout, AppHeader, AppSidebar } from './components/layout'
+
+// 注册全局会话活跃度监听
+const activityEvents = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart']
+activityEvents.forEach(event => {
+  window.addEventListener(event, () => markUserActivity(), { passive: true })
+})
+markUserActivity()
 
 // 全局挂载axios
 const app = createApp(App)

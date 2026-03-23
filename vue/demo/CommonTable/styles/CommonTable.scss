@@ -1,0 +1,83 @@
+.common-table {
+
+  .main-operator-block {
+    margin-bottom: 10px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+
+    .left-button {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 5px;
+
+      .el-button {
+        margin: 0;
+      }
+    }
+
+    .search-block {
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+      gap: 5px;
+      flex-wrap: wrap;
+      flex: 1;
+      max-width: 780px;
+
+
+      .search-item {
+        width: 190px;
+      }
+
+
+      .query-button-group {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        align-items: flex-start;
+        gap: 5px;
+
+        .el-button {
+          margin: 0;
+        }
+      }
+    }
+  }
+
+
+  .custom-area {
+    margin-bottom: 10px;
+  }
+
+  .operate-button-group {
+    width: auto;
+    display: inline-block;
+    justify-content: space-between;
+    align-items: center;
+    margin-right: 20px;
+  }
+
+  .paging-operation {
+    padding: 10px;
+    width: 100%;
+  }
+}
+
+.table-column-header {
+  &.is-empty {
+    .filter-clear-btn {
+      display: none;
+    }
+  }
+
+  &.not-empty {
+    color: red;
+
+    .filter-clear-btn {
+      margin-left: 4px;
+    }
+  }
+}

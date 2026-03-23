@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +46,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     private static final String GLOBAL_TENANT_KEY = "GLOBAL";
 
     @Override
-    @Cacheable(value = "userDetailsCache", key = "#root.target.buildCacheKey(#username)", unless = "#result == null")
+    @Cacheable(
+            value = "userDetailsCache",
+            key = "#root.target.buildCacheKey(#username)",
+            unless = "#root.target.skipCache(#result)"
+    )
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         log.info("正在加载用户: {}", username);
 
@@ -111,6 +116,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 }
             }
 
+            if (!StringUtils.hasText(userEntity.getPassword())) {
+                log.warn("UserDetailsServiceImpl: 用户 {} 的密码字段为空 (tenantId={})", username, userEntity.getTenantId());
+            }
+
             log.info("成功获取用户实体: {}, 状态: {}, 租户ID: {}", userEntity.getUsername(), userEntity.getStatus(), userEntity.getTenantId());
 
             // 检查用户状态
@@ -120,14 +129,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
             boolean enabled = (userEntity.getStatus() == 1); // 只有 status == 1 时才启用
 
-                return new org.springframework.security.core.userdetails.User(
+                return new CachedUserDetails(
                         userEntity.getUsername(),
                         userEntity.getPassword(),
-                        enabled, // 根据状态设置enabled标志
-                        true, 
-                        true,
-                        true,
-                        authorities 
+                        enabled,
+                        authorities
                 );
             }
 
@@ -169,19 +175,28 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         log.info("用户 {} 加载了 {} 个权限", username, authorities.size());
 
         // **** 返回 UserDetails (用户状态正常时) ****
-        return new org.springframework.security.core.userdetails.User( // <-- 使用完整的类名
+        return new CachedUserDetails(
                 userEntity.getUsername(),
                 userEntity.getPassword(),
-                true, // enabled = true 因为 status == 1
-                true, // 其他标志假设为true
                 true,
-                true,
-                authorities // 权限列表
+                authorities
         );
     }
 
     public String buildCacheKey(String username) {
         String tenant = TenantContext.getCurrentTenant();
         return (tenant == null ? GLOBAL_TENANT_KEY : tenant) + ":" + username;
+    }
+
+    public boolean skipCache(UserDetails userDetails) {
+        if (userDetails == null) {
+            return true;
+        }
+        String password = userDetails.getPassword();
+        boolean skip = !StringUtils.hasText(password);
+        if (skip) {
+            log.debug("UserDetailsServiceImpl: 跳过缓存用户 {}, 因密码为空", userDetails.getUsername());
+        }
+        return skip;
     }
 }

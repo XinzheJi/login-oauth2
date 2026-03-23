@@ -12,6 +12,8 @@
 - [7. 健康检查接口](#7-健康检查接口)
 - [8. 电源台账管理接口](#8-电源台账管理接口)
 - [9. 电源告警管理接口](#9-电源告警管理接口)
+- [10. 历史故障管理接口](#10-历史故障管理接口)
+- [11. AI 预测接口](#11-ai-预测接口)
 
 ---
 
@@ -1123,6 +1125,396 @@
   "success": true
 }
 ```
+
+
+---
+
+## 10. 历史故障管理接口
+
+### 10.1 分页查询历史故障
+
+- **URL**: `/api/power/history-alarms/page`
+- **Method**: `POST`
+- **权限要求**: `power:alarm:history`
+- **请求参数**:
+
+```json
+{
+  "areaId": 11,
+  "alarmResourceId": 301,
+  "alarmResourceName": "主站",
+  "statusList": [1, 2],
+  "levelIds": [7],
+  "alarmResourceType": "DEVICE",
+  "alarmSource": "SYSTEM",
+  "confirmStatus": "CONFIRMED",
+  "alarmType": "POWER",
+  "alarmStartTime": "2024-05-01 00:00:00",
+  "alarmEndTime": "2024-05-07 23:59:59",
+  "recoverStartTime": "2024-05-08 00:00:00",
+  "recoverEndTime": "2024-05-10 23:59:59",
+  "pageNum": 1,
+  "pageSize": 10
+}
+```
+
+- **返回示例**:
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "success": true,
+  "data": {
+    "pageNum": 1,
+    "pageSize": 10,
+    "total": 1,
+    "pages": 1,
+    "list": [
+      {
+        "id": 42,
+        "name": "电压过高",
+        "code": "ALARM-001",
+        "status": 2,
+        "alarmType": "POWER",
+        "alarmSource": "SYSTEM",
+        "alarmSourceId": 501,
+        "alarmResourceType": "DEVICE",
+        "alarmResourceId": 301,
+        "alarmResourceName": "主站电源",
+        "alarmValue": "250V",
+        "createTime": "2024-05-01T10:00:00",
+        "reAlarmTime": "2024-05-01T13:00:00",
+        "confirmStatus": "CONFIRMED",
+        "confirmUser": "运维A",
+        "confirmTime": "2024-05-01T11:00:00",
+        "reason": "电压波动",
+        "suggestion": "检查市电输入",
+        "levelId": 7,
+        "areaId": 11,
+        "remark": "测试告警",
+        "alarmResourceDetailsType": "PORT",
+        "alarmResourceDetailsName": "输出口1",
+        "alarmResourceDetailsId": 901,
+        "alarmResourceDetailsIndex": "1",
+        "reAlarmSource": "SYSTEM",
+        "reAlarmSourceId": 502,
+        "reAlarmValue": "220V",
+        "createUser": 1001,
+        "updateUser": 1002,
+        "updateTime": "2024-05-01T12:00:00",
+        "confirmUserId": 900,
+        "alarmConfigId": 88
+      }
+    ]
+  }
+}
+```
+
+### 10.2 查询历史故障详情
+
+- **URL**: `/api/power/history-alarms/{alarmId}`
+- **Method**: `GET`
+- **权限要求**: `power:alarm:history`
+- **路径参数**:
+  - `alarmId`: 告警ID
+- **返回示例**:
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "success": true,
+  "data": {
+    "id": 42,
+    "name": "电压过高",
+    "code": "ALARM-001",
+    "status": 2,
+    "alarmType": "POWER",
+    "alarmSource": "SYSTEM",
+    "alarmSourceId": 501,
+    "alarmResourceType": "DEVICE",
+    "alarmResourceId": 301,
+    "alarmResourceName": "主站电源",
+    "alarmValue": "250V",
+    "createTime": "2024-05-01T10:00:00",
+    "reAlarmTime": "2024-05-01T13:00:00",
+    "confirmStatus": "CONFIRMED",
+    "confirmUser": "运维A",
+    "confirmTime": "2024-05-01T11:00:00",
+    "reason": "电压波动",
+    "suggestion": "检查市电输入",
+    "levelId": 7,
+    "areaId": 11,
+    "remark": "测试告警",
+    "alarmResourceDetailsType": "PORT",
+    "alarmResourceDetailsName": "输出口1",
+    "alarmResourceDetailsId": 901,
+    "alarmResourceDetailsIndex": "1",
+    "reAlarmSource": "SYSTEM",
+    "reAlarmSourceId": 502,
+    "reAlarmValue": "220V",
+    "createUser": 1001,
+    "updateUser": 1002,
+    "updateTime": "2024-05-01T12:00:00",
+    "confirmUserId": 900,
+    "alarmConfigId": 88
+  }
+}
+```
+
+
+
+---
+
+## 11. AI 预测接口
+
+### 11.1 老化预测
+
+- **URL**: `/api/tool/predict/aging`
+- **Method**: `POST`
+- **权限要求**: 已登录用户（建议结合业务权限控制）
+- **可选请求头**: `X-Request-ID`（用于链路追踪）
+- **请求参数（JSON）**:
+
+```json
+{
+  "deviceId": "SW-0001",
+  "historyStart": "2024-05-01T00:00:00Z",
+  "historyEnd": "2024-05-07T23:59:59Z",
+  "historyLength": 336,
+  "minimumHistorySize": 120,
+  "requestTimestamp": "2024-05-08T00:00:00Z"
+}
+```
+
+- 字段说明：
+  - `deviceId` 必填，设备ID
+  - `historyStart` 可选，历史窗口开始时间（ISO-8601）
+  - `historyEnd` 可选，历史窗口结束时间（ISO-8601，若同时提供则不得早于 `historyStart`）
+  - `historyLength` 可选，历史查询行数上限（>0）
+  - `minimumHistorySize` 可选，最小历史样本量（>0，若不足将返回错误）
+  - `requestTimestamp` 可选，请求时间戳（用于复现/回溯）
+
+- **返回示例**:
+
+```json
+{
+  "code": 200,
+  "message": "OK",
+  "success": true,
+  "data": {
+    "success": true,
+    "result": {
+      "device_id": "SW-0001",
+      "health_index": 0.78,
+      "tte_hours": 240.5,
+      "rul_hours": 180.0,
+      "risk_level": "MEDIUM",
+      "contributors": [
+        { "metric": "memoryUsage", "weight": 0.32 },
+        { "metric": "temperature", "weight": 0.27 }
+      ],
+      "prediction_time": "2024-05-08T00:00:00Z"
+    },
+    "message": "ok"
+  }
+}
+```
+
+> 校验规则：当同时提供 `historyStart` 与 `historyEnd` 时，必须满足 `historyEnd` ≥ `historyStart`，否则返回 400 错误。
+
+> 说明：接口采用统一响应封装（HTTP 200 + 业务码），当外部推理服务不可用或返回错误时，`code` 将为 4xx/5xx，`message` 含错误信息。
+
+---
+
+### 11.2 故障趋势预测
+
+- **URL**: `/api/tool/predict/fault`
+- **Method**: `POST`
+- **权限要求**: 已登录用户（建议结合业务权限控制）
+- **可选请求头**: `X-Request-ID`（用于链路追踪）
+- **请求参数（JSON）**:
+
+```json
+{
+  "deviceId": "SW-0001",
+  "historyStart": "2024-05-01T00:00:00Z",
+  "historyEnd": "2024-05-07T23:59:59Z",
+  "historyLength": 336,
+  "minimumHistorySize": 120,
+  "requestTimestamp": "2024-05-08T00:00:00Z"
+}
+```
+
+- 字段说明：同“11.1 老化预测”请求参数。
+
+- **返回示例**:
+
+```json
+{
+  "code": 200,
+  "message": "OK",
+  "success": true,
+  "data": {
+    "success": true,
+    "result": {
+      "device_id": "SW-0001",
+      "prob_7d": 0.62,
+      "prob_14d": 0.71,
+      "prob_30d": 0.80,
+      "risk_level": "HIGH",
+      "explanation": "同批次与软件版本先验风险较高，近窗变点概率上升",
+      "contributors": [
+        { "metric": "batch_risk", "weight": 0.34 },
+        { "metric": "sw_version_prior", "weight": 0.28 },
+        { "metric": "icmpLoss", "weight": 0.18 }
+      ],
+      "prediction_time": "2024-05-08T00:00:00Z"
+    },
+    "message": "ok"
+  }
+}
+```
+
+> 说明：接口返回为统一封装结构，`data.success` 表示外部推理服务是否成功；`result` 为核心预测结果，字段命名以下划线风格输出。
+
+
+---
+
+### 11.3 批量预测
+
+- URL: `/api/tool/predict/batch`
+- Method: `POST`
+- 权限要求: 已登录用户
+- 请求参数（JSON）:
+
+```json
+{
+  "deviceIds": ["SW-0001", "SW-0002"],
+  "historyStart": "2024-05-01T00:00:00Z",
+  "historyEnd": "2024-05-07T23:59:59Z",
+  "historyLength": 336,
+  "minimumHistorySize": 64,
+  "requestTimestamp": "2024-05-08T00:00:00Z",
+  "mode": "default"
+}
+```
+
+- 返回示例:
+
+```json
+{
+  "code": 200,
+  "message": "OK",
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "device_id": "SW-0001",
+        "aging": { "success": true, "result": { "health_index": 0.78 } },
+        "fault": { "success": true, "result": { "prob_7d": 0.62 } }
+      }
+    ],
+    "failed": { "SW-0002": "历史样本不足：10/64" },
+    "failed_count": 1,
+    "cost_ms": 135
+  }
+}
+```
+
+> 说明：`failed`/`failed_count` 合并了本地数据预检失败与外部推理服务失败条目；当 `historyEnd` < `historyStart` 返回 400。
+
+- 兼容性说明：
+  - 当外部批量接口校验更严格（如要求历史长度=模型 input_length）导致 4xx（如 422）时，后端将按配置回退为“逐设备单发”再汇总返回，确保 `results` 中包含 `aging`/`fault` 明细。
+  - 回退开关：由后端配置管理（默认开启），不影响调用方协议。
+
+---
+
+### 11.4 历史预测结果查询
+
+- URL: `/api/tool/predict/history`
+- Method: `GET`
+- 权限要求: 已登录用户
+- 请求参数（Query）:
+  - `deviceId` 必填，设备ID
+  - `type` 可选，`AGING` 或 `FAULT`
+  - `start` 可选，ISO-8601 起始时间
+  - `end` 可选，ISO-8601 截止时间（若同时提供则不得早于 `start`）
+  - `page` 可选，页码（默认 1）
+  - `size` 可选，页大小（默认 20，最大 200）
+  - `asc` 可选，是否按预测时间升序（默认 true）
+
+- 返回示例:
+
+```json
+{
+  "code": 200,
+  "message": "OK",
+  "success": true,
+  "data": {
+    "page": 1,
+    "size": 20,
+    "total": 128,
+    "items": [
+      {
+        "deviceId": "SW-0001",
+        "predictType": "FAULT",
+        "predictionTime": "2024-05-08T00:00:00Z",
+        "createdAt": "2024-05-08T00:00:00Z",
+        "result": { "success": true, "result": { "prob_7d": 0.62, "prob_14d": 0.71, "prob_30d": 0.80 } }
+      }
+    ]
+  }
+}
+```
+
+> 说明：`result` 字段为保存时的完整预测响应 JSON（AGING 或 FAULT）。
+
+---
+
+### 11.5 运维与指标（仅供观测）
+
+- 说明：以下端点用于运维观测，需要携带认证；仅返回已经产生过的自定义指标。
+- **URL**: `/actuator/metrics`
+- **示例指标**:
+  - `ai_predict.batch.success` 批量任务成功次数（定时任务记录）
+  - `ai_predict.batch.failed` 批量任务失败次数（定时任务记录）
+  - `ai_predict.batch.duration` 批量任务耗时分布（定时任务记录）
+  - `ai_predict.results.saved` 结果入库计数（保存时记录）
+> 说明：若指标名返回 404，表示该指标尚未产生记录（未被上报过）。
+
+
+
+
+API 文档（折线图使用指南）
+
+- 服务基础信息
+  - 运行：uvicorn app.main:fastapi_app --host 0.0.0.0 --port 8000
+  - 文档：http://<host>:<port>/api/docs
+  - 路径前缀：/api/v1
+- 接口响应适配：在 vue/src/api/ 里给 /api/tool/predict/aging 和 /fault 的返回类型加上 forecast 数组（元素含 timestamp、temperature，老化多
+  health_index，故障多 fault_probability）。timemoe 暂未返回 forecast_interval_hours/forecast_horizon_hours，后续若补上同样透传即可。
+  - 折线图数据源：
+    - 老化页：x 轴用 forecast[].timestamp；y 轴两条线：温度(temperature)、健康指数(health_index)。
+    - 故障页：x 轴同上；y 轴两条线：温度、故障概率(fault_probability，可乘 100% 显示百分比)；把 prob_7d/14d/30d 作为标注/tooltip 参考。
+  - 判空和降级：forecast 可能为空或缺失，先判空，为空时显示“暂无预测序列”并只展示当前指标，避免图表报错。
+
+
+  修改前端：
+  1) 更新 /api/tool/predict/aging 和 /fault 的响应类型，新增字段 forecast（数组，元素包含 timestamp、temperature，aging 还包含 health_index，fault 包
+     含 fault_probability）。
+  2) 老化页面的折线图使用 resp.data.result.forecast：
+    - x 轴 timestamp
+    - y 轴两条线：temperature、health_index
+  3) 故障页面折线图：
+    - x 轴 timestamp
+    - y 轴两条线：temperature、fault_probability（0~1，显示可乘 100%）
+    - 在 tooltip 或图注里标出 prob_7d/prob_14d/prob_30d
+  4) forecast 缺失时展示“暂无预测序列”，不要渲染图，避免报错；其他数据照旧显示。
+  5) 如果后端后续返回 forecast_interval_hours/forecast_horizon_hours，则一并透传，并可用 interval 控制刻度显示。
+
+---
 
 ## 状态码说明
 

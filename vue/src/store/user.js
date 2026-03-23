@@ -1,6 +1,6 @@
 // store/userStore.js
 import { defineStore } from 'pinia'
-import { login, getUserInfo, logout, checkSSOEnabled, getSSOAuthorizeUrl, startSSOLogin, handleSSOCallback } from '@/api/auth'
+import { login, getUserInfo, logout, checkSSOEnabled, getSSOAuthorizeUrl, startSSOLogin, handleSSOCallback, setTokenExpiresAt, markUserActivity } from '@/api/auth'
 import router from '@/router'
 import { ElMessage } from 'element-plus'
 import { nextTick } from 'vue'
@@ -8,11 +8,12 @@ import { nextTick } from 'vue'
 // 密码安全存储 - 使用SessionStorage而非LocalStorage
 // SessionStorage会在页面会话结束时清除（关闭标签或浏览器）
 // 这比LocalStorage更安全，因为LocalStorage会永久存储
+const DEFAULT_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 /**
  * 保存认证令牌
  * @param {String} token JWT令牌
  */
-function saveAuthToken(token) {
+function saveAuthToken(token, expiresAt) {
   if (!token) {
     console.warn('尝试保存空token');
     return;
@@ -21,6 +22,10 @@ function saveAuthToken(token) {
   try {
     // 直接保存token，不进行任何处理，保持原始格式
     sessionStorage.setItem('token', token);
+    if (expiresAt) {
+      setTokenExpiresAt(expiresAt);
+    }
+    markUserActivity();
     
     if (process.env.NODE_ENV !== 'production') {
       console.log('令牌已保存到会话存储');
@@ -32,19 +37,16 @@ function saveAuthToken(token) {
 
 const getAuthToken = () => {
   try {
-    // 优先从sessionStorage获取
-    let token = sessionStorage.getItem('token');
-    
-    // 如果sessionStorage中没有，尝试从localStorage获取（兼容旧版本）
-    if (!token) {
-      token = localStorage.getItem('token');
-      // 如果从localStorage获取到了，迁移到sessionStorage并清除localStorage
-      if (token) {
-        sessionStorage.setItem('token', token);
+    // 仅从sessionStorage获取
+    const token = sessionStorage.getItem('token');
+    // 清理旧版本localStorage残留
+    try {
+      if (localStorage.getItem('token')) {
         localStorage.removeItem('token');
       }
+    } catch (e) {
+      console.warn('无法清理旧token', e);
     }
-    
     return token || '';
   } catch (e) {
     console.error('获取授权令牌失败');
@@ -55,7 +57,11 @@ const getAuthToken = () => {
 const clearAuthToken = () => {
   try {
     sessionStorage.removeItem('token');
-    localStorage.removeItem('token'); // 同时清除localStorage中可能存在的token
+    sessionStorage.removeItem('token_expires_at');
+    sessionStorage.removeItem('last_activity_ts');
+    sessionStorage.removeItem('token_remaining_seconds');
+    // 清理旧版本遗留
+    try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) {}
   } catch (e) {
     console.error('清除授权令牌失败');
   }
@@ -64,7 +70,7 @@ const clearAuthToken = () => {
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: getAuthToken(),
-    userInfo: JSON.parse(localStorage.getItem('user') || '{}'),
+    userInfo: JSON.parse(sessionStorage.getItem('user') || '{}'),
     ssoEnabled: false,
     ssoProvider: ''
   }),
@@ -90,11 +96,12 @@ export const useUserStore = defineStore('user', {
           throw new Error('登录失败：服务器未返回有效令牌');
         }
         const token = loginResponse.token;
+        const expiresAt = loginResponse.expiresAt || (loginResponse.expiresIn ? Date.now() + Number(loginResponse.expiresIn) * 1000 : Date.now() + DEFAULT_TOKEN_TTL_MS);
         if (process.env.NODE_ENV !== 'production') {
           console.log(`登录成功，获取到令牌，长度: ${token.length}`);
         }
         this.token = token;
-        saveAuthToken(token);
+        saveAuthToken(token, expiresAt);
         try {
           console.log('准备获取用户信息...');
           await this.getUserInfoAction();
@@ -129,11 +136,10 @@ export const useUserStore = defineStore('user', {
           // 保存到state
           this.userInfo = basicUserInfo;
           
-          // 同时保存到sessionStorage和localStorage
+          // 保存到sessionStorage
           try {
             const userInfoStr = JSON.stringify(basicUserInfo);
             sessionStorage.setItem('user', userInfoStr);
-            localStorage.setItem('user', userInfoStr);
             console.log('loginAction: 已保存基本用户信息到本地存储');
           } catch (err) {
             console.error('loginAction: 保存基本用户信息到本地存储失败:', err);
@@ -252,11 +258,10 @@ export const useUserStore = defineStore('user', {
         // 保存增强后的用户信息到 state
         this.userInfo = enhancedUserInfo;
         
-        // 同时保存到 sessionStorage 和 localStorage，确保路由守卫能找到
+        // 保存到 sessionStorage，确保路由守卫能找到
         try {
           const userInfoStr = JSON.stringify(enhancedUserInfo);
           sessionStorage.setItem('user', userInfoStr);
-          localStorage.setItem('user', userInfoStr);
           
           if (process.env.NODE_ENV !== 'production') {
             console.log('增强后的用户信息已保存到本地存储:', JSON.stringify({
@@ -323,13 +328,13 @@ export const useUserStore = defineStore('user', {
       }
     },
     
-    // 重置状态
-    resetState() {
-      this.token = ''
-      this.userInfo = { roles: [], permissions: [] }
-      clearAuthToken()
-      localStorage.removeItem('user')
-    },
+  // 重置状态
+  resetState() {
+    this.token = ''
+    this.userInfo = { roles: [], permissions: [] }
+    clearAuthToken()
+    sessionStorage.removeItem('user')
+  },
 
     // SSO相关方法
     
@@ -367,10 +372,11 @@ export const useUserStore = defineStore('user', {
         
         // 调用后端处理回调
         const response = await handleSSOCallback(code, state)
+        const expiresAt = response.expiresAt || (response.expiresIn ? Date.now() + Number(response.expiresIn) * 1000 : Date.now() + DEFAULT_TOKEN_TTL_MS)
         
         // 保存登录信息
         this.token = response.token
-        localStorage.setItem('token', response.token)
+        saveAuthToken(response.token, expiresAt)
         
         // 获取用户信息
         await this.getUserInfoAction()
@@ -425,10 +431,11 @@ export const useUserStore = defineStore('user', {
       if (token || hashToken) {
         const finalToken = token || hashToken
         const loginMethod = method || hashMethod
+        const expiresAt = Date.now() + DEFAULT_TOKEN_TTL_MS
         
         try {
           this.token = finalToken
-          localStorage.setItem('token', finalToken)
+          saveAuthToken(finalToken, expiresAt)
           
           await this.getUserInfoAction()
           

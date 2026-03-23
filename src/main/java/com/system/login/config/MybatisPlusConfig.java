@@ -4,9 +4,9 @@ import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
+import com.system.login.domain.entity.Tenant;
 import com.system.login.security.tenant.TenantContext;
 import com.system.login.service.tenant.TenantService;
-import com.system.login.domain.entity.Tenant;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
@@ -30,7 +30,7 @@ public class MybatisPlusConfig {
     private static final List<String> IGNORE_TENANT_TABLES = Arrays.asList(
             "tenant", "user_role", "role_permission", "permission"
     );
-    
+
     /**
      * 配置MybatisPlus拦截器
      */

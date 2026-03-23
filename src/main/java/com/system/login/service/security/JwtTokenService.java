@@ -120,15 +120,24 @@ public class JwtTokenService {
     /**
      * 从JWT令牌中获取过期日期
      */
-    private Date getExpirationDateFromToken(String token) {
+    public Date getExpirationDateFromToken(String token) {
         return getClaimsFromToken(token).getExpiration();
     }
     
     /**
      * 检查令牌是否过期
      */
-    private boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         final Date expiration = getExpirationDateFromToken(token);
         return expiration.before(new Date());
+    }
+
+    /**
+     * 获取令牌剩余有效期（秒）
+     */
+    public long getRemainingSeconds(String token) {
+        Date expiration = getExpirationDateFromToken(token);
+        long diff = expiration.getTime() - System.currentTimeMillis();
+        return diff <= 0 ? 0 : diff / 1000;
     }
 }

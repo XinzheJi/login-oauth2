@@ -3,10 +3,9 @@
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="header-left">
-        <h1 class="page-title">
-          <el-icon><TrendCharts /></el-icon>
+        <h3 class="page-title" style="font-weight: normal; font-size: 18px;">
           设备老化与故障感知
-        </h1>
+        </h3>
         <!-- 设备选择器 -->
         <div class="device-selector">
           <el-select 
@@ -31,16 +30,14 @@
         </div>
       </div>
       <div class="header-actions">
-        <el-button type="primary" @click="updateData">
+        <el-button type="primary" @click="() => updateData()">
           <el-icon><Refresh /></el-icon>
           刷新数据
         </el-button>
         <el-button type="success" @click="triggerAIPrediction">
-          <el-icon><Magic /></el-icon>
           触发AI预测
         </el-button>
         <el-button @click="exportReport">
-          <el-icon><Download /></el-icon>
           导出报告
         </el-button>
       </div>
@@ -48,12 +45,12 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <!-- 左侧：设备老化感知 -->
+      <!-- 左侧：设备健康感知（基于健康指数） -->
       <div class="chart-section left-section">
         <div class="chart-header">
-          <h2 class="chart-title">
-            <el-icon><LineChart /></el-icon>
-            设备老化感知
+          <h2 class="chart-title" style="font-weight: normal;">
+            
+            设备健康感知
           </h2>
           <div class="chart-controls">
             <el-select v-model="agingTimeRange" size="small" @change="updateAgingChart">
@@ -63,22 +60,36 @@
             </el-select>
           </div>
         </div>
+        <!-- 统计指标栏 -->
+        <div class="stats-row" v-if="agingScoreSummary.score7d !== null || agingScoreSummary.score14d !== null || agingScoreSummary.score30d !== null">
+          <div class="stat-item">
+            <span class="stat-label">7天预测</span>
+            <span class="stat-value" :class="getAgingLevelClass(agingScoreSummary.score7d)">{{ agingScoreSummary.score7d }}</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">14天预测</span>
+            <span class="stat-value" :class="getAgingLevelClass(agingScoreSummary.score14d)">{{ agingScoreSummary.score14d }}</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">30天预测</span>
+            <span class="stat-value" :class="getAgingLevelClass(agingScoreSummary.score30d)">{{ agingScoreSummary.score30d }}</span>
+          </div>
+        </div>
         <div class="chart-container">
+          <div v-if="!hasAgingForecast" class="chart-empty">暂无预测序列</div>
           <div ref="agingChart" class="chart"></div>
         </div>
         <div class="chart-footer">
           <div class="legend-info">
             <span class="legend-item">
-              <span class="legend-color aging-line"></span>
-              老化评分
+              <span class="legend-color temp-line"></span>
+              温度
             </span>
             <span class="legend-item">
-              <span class="legend-color threshold-line"></span>
-              阈值线 (80分)
-            </span>
-            <span class="legend-item">
-              <span class="legend-color warning-dot"></span>
-              超阈值警告
+              <span class="legend-color health-line"></span>
+              健康指数
             </span>
             <span v-if="showAIPrediction" class="legend-item">
               <span class="legend-color ai-prediction"></span>
@@ -100,8 +111,7 @@
       <!-- 右侧：故障趋势感知 -->
       <div class="chart-section right-section">
         <div class="chart-header">
-          <h2 class="chart-title">
-            <el-icon><DataAnalysis /></el-icon>
+          <h2 class="chart-title" style="font-weight: normal;">
             设备故障趋势感知
           </h2>
           <div class="chart-controls">
@@ -112,22 +122,36 @@
             </el-select>
           </div>
         </div>
+        <!-- 统计指标栏 -->
+        <div class="stats-row" v-if="faultProbabilitySummary.prob7d !== null || faultProbabilitySummary.prob14d !== null || faultProbabilitySummary.prob30d !== null">
+          <div class="stat-item">
+            <span class="stat-label">7天预测</span>
+            <span class="stat-value" :class="getRiskLevelClass(faultProbabilitySummary.prob7d)">{{ formatProbabilityDisplay(faultProbabilitySummary.prob7d) }}</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">14天预测</span>
+            <span class="stat-value" :class="getRiskLevelClass(faultProbabilitySummary.prob14d)">{{ formatProbabilityDisplay(faultProbabilitySummary.prob14d) }}</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">30天预测</span>
+            <span class="stat-value" :class="getRiskLevelClass(faultProbabilitySummary.prob30d)">{{ formatProbabilityDisplay(faultProbabilitySummary.prob30d) }}</span>
+          </div>
+        </div>
         <div class="chart-container">
+          <div v-if="!hasFaultForecast" class="chart-empty">暂无预测序列</div>
           <div ref="faultChart" class="chart"></div>
         </div>
         <div class="chart-footer">
           <div class="legend-info">
             <span class="legend-item">
-              <span class="legend-color risk-line"></span>
-              历史风险评分
+              <span class="legend-color temp-line"></span>
+              温度
             </span>
             <span class="legend-item">
-              <span class="legend-color predicted-line"></span>
-              预测趋势
-            </span>
-            <span class="legend-item">
-              <span class="legend-color high-risk"></span>
-              高风险区域
+              <span class="legend-color fault-line"></span>
+              故障概率
             </span>
           </div>
         </div>
@@ -139,7 +163,7 @@
       <el-card class="device-info-card">
         <template #header>
           <div class="card-header">
-            <h3>设备详情信息</h3>
+            <h3 style="font-weight: normal;">设备详情信息</h3>
             <el-tag :type="deviceInfo.status === '正常' ? 'success' : 'danger'">
               {{ deviceInfo.status }}
             </el-tag>
@@ -149,7 +173,7 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <div class="device-basic-info">
-              <h4>基础信息</h4>
+              <h4 style="font-weight: normal;">基础信息</h4>
               <el-descriptions :column="1" size="small">
                 <el-descriptions-item label="设备ID">{{ deviceInfo.deviceId }}</el-descriptions-item>
                 <el-descriptions-item label="设备名称">{{ deviceInfo.deviceName }}</el-descriptions-item>
@@ -170,9 +194,9 @@
           
           <el-col :span="12">
             <div class="device-status-info">
-              <h4>实时状态</h4>
+              <h4 style="font-weight: normal;">实时状态</h4>
               <el-descriptions :column="1" size="small">
-                <el-descriptions-item label="当前老化评分">
+                <el-descriptions-item label="当前健康指数">
                   <span :class="getAgingLevelClass(deviceInfo.currentAgingScore)">
                     {{ deviceInfo.currentAgingScore }}分
                   </span>
@@ -186,9 +210,8 @@
                 <el-descriptions-item label="温度">{{ deviceInfo.temperature }}°C</el-descriptions-item>
                 <el-descriptions-item label="内存使用率">{{ deviceInfo.memoryUsage }}%</el-descriptions-item>
                 <el-descriptions-item label="告警数量">
-                  <el-tag :type="deviceInfo.alarmCount > 0 ? 'danger' : 'success'">
                     {{ deviceInfo.alarmCount }}
-                  </el-tag>
+
                 </el-descriptions-item>
               </el-descriptions>
             </div>
@@ -197,7 +220,7 @@
         
         <!-- AI智能建议 -->
         <div class="ai-suggestions">
-          <h4>AI智能建议</h4>
+          <h4 style="font-weight: normal;">AI智能建议</h4>
           <div class="suggestions-list">
             <el-alert
               :title="aiSuggestions"
@@ -218,7 +241,7 @@ import * as echarts from 'echarts'
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
-import { useDeviceStore } from '@/store/device'
+import { predictDeviceAging, predictDeviceFault, getPredictHistory } from '@/api/deviceAgingFault'
 import { 
   TrendCharts, 
   Refresh, 
@@ -245,7 +268,6 @@ export default {
     Magic
   },
   setup(props) {
-    const deviceStore = useDeviceStore()
     const route = useRoute()
     
     const agingChart = ref(null)
@@ -255,19 +277,27 @@ export default {
     const showAIPrediction = ref(false)
     const aiPredictionTip = ref('')
     const selectedDeviceId = ref('')
+    const agingForecast = ref([])
+    const faultForecast = ref([])
+    const agingForecastMeta = ref({ intervalHours: null, horizonHours: null })
+    const faultForecastMeta = ref({ intervalHours: null, horizonHours: null })
+    const agingScoreSummary = ref({ score7d: null, score14d: null, score30d: null })
+    const faultProbabilitySummary = ref({ prob7d: null, prob14d: null, prob30d: null })
+    const agingContributors = ref([])
+    const faultContributors = ref([])
+    const hasAgingForecast = computed(() => agingForecast.value.length > 0)
+    const hasFaultForecast = computed(() => faultForecast.value.length > 0)
     
     let agingChartInstance = null
     let faultChartInstance = null
     
-    // 写死的模拟设备数据
+    // 默认设备列表（与 sql/add_ai_predict_tables.sql 中的示例数据保持一致）
     const deviceList = ref([
-      { id: '1', name: '中港变电站S2', model: 'Cisco-2950', supplier: 'Cisco', location: '深圳南山', runtime: '820天' },
-      { id: '2', name: '三角电公司S1', model: 'Huawei-S5700', supplier: 'Huawei', location: '广州黄埔', runtime: '560天' },
-      { id: '3', name: '富豪变电站S3', model: 'ZTE-ZXR10', supplier: 'ZTE', location: '东莞松山湖', runtime: '1200天' },
-      { id: '4', name: '科技园变电站S4', model: 'H3C-S5560', supplier: 'H3C', location: '深圳科技园', runtime: '450天' },
-      { id: '5', name: '工业区变电站S5', model: 'Ruijie-RG-S5750', supplier: 'Ruijie', location: '佛山南海', runtime: '680天' }
+      { id: 'sw-0199', name: '中港变电站S2', model: 'HL-S330', supplier: '宏联科技', location: '华南', runtime: '820天' },
+      { id: 'sw-0207', name: '三角电公司S1', model: '未知型号', supplier: '未知厂商', location: '广州黄埔', runtime: '560天' },
+      { id: 'sw-5001', name: 'Router sw-5001', model: 'HL-R500', supplier: '宏联科技', location: '华北', runtime: '950天' },
+      { id: 'sw-5002', name: 'Switch sw-5002', model: 'HX-S800', supplier: '华升通信', location: '西北', runtime: '880天' }
     ])
-    
     // 动态设备数据映射（用于从交换机管理页面跳转过来的设备）
     const dynamicDeviceMap = ref(new Map())
     
@@ -333,7 +363,8 @@ export default {
         maintenanceDate: new Date(Date.now() - Math.abs(nameHash) % 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         voltage: (220 + Math.abs(nameHash) % 20).toFixed(1),
         temperature: (25 + Math.abs(nameHash) % 15).toFixed(1),
-        memoryUsage: Math.abs(nameHash) % 80 + 20,
+        memoryUsage: Math.abs(nameHash) % 50 + 30,
+        cpuUsage: Math.abs(nameHash >> 3) % 50 + 20,
         alarmCount: Math.abs(nameHash) % 5,
         currentAgingScore: agingData[agingData.length - 1].score,
         currentRiskScore: riskData.history[riskData.history.length - 1],
@@ -414,203 +445,6 @@ export default {
       }
     }
     
-    // 写死的老化感知数据
-    const agingData = {
-      '1': [
-        { time: '2025-09-01', score: 30 },
-        { time: '2025-09-02', score: 32 },
-        { time: '2025-09-03', score: 35 },
-        { time: '2025-09-04', score: 38 },
-        { time: '2025-09-05', score: 42 },
-        { time: '2025-09-06', score: 45 },
-        { time: '2025-09-07', score: 48 },
-        { time: '2025-09-08', score: 52 },
-        { time: '2025-09-09', score: 55 },
-        { time: '2025-09-10', score: 58 },
-        { time: '2025-09-11', score: 62 },
-        { time: '2025-09-12', score: 65 },
-        { time: '2025-09-13', score: 68 },
-        { time: '2025-09-14', score: 72 },
-        { time: '2025-09-15', score: 75 },
-        { time: '2025-09-16', score: 78 },
-        { time: '2025-09-17', score: 82 },
-        { time: '2025-09-18', score: 85 },
-        { time: '2025-09-19', score: 88 },
-        { time: '2025-09-20', score: 92 },
-        { time: '2025-09-21', score: 95 },
-        { time: '2025-09-22', score: 98 },
-        { time: '2025-09-23', score: 100 },
-        { time: '2025-09-24', score: 98 },
-        { time: '2025-09-25', score: 95 },
-        { time: '2025-09-26', score: 92 },
-        { time: '2025-09-27', score: 88 },
-        { time: '2025-09-28', score: 85 },
-        { time: '2025-09-29', score: 82 },
-        { time: '2025-09-30', score: 78 }
-      ],
-      '2': [
-        { time: '2025-09-01', score: 25 },
-        { time: '2025-09-02', score: 28 },
-        { time: '2025-09-03', score: 30 },
-        { time: '2025-09-04', score: 33 },
-        { time: '2025-09-05', score: 35 },
-        { time: '2025-09-06', score: 38 },
-        { time: '2025-09-07', score: 40 },
-        { time: '2025-09-08', score: 43 },
-        { time: '2025-09-09', score: 45 },
-        { time: '2025-09-10', score: 48 },
-        { time: '2025-09-11', score: 50 },
-        { time: '2025-09-12', score: 53 },
-        { time: '2025-09-13', score: 55 },
-        { time: '2025-09-14', score: 58 },
-        { time: '2025-09-15', score: 60 },
-        { time: '2025-09-16', score: 63 },
-        { time: '2025-09-17', score: 65 },
-        { time: '2025-09-18', score: 68 },
-        { time: '2025-09-19', score: 70 },
-        { time: '2025-09-20', score: 73 },
-        { time: '2025-09-21', score: 75 },
-        { time: '2025-09-22', score: 78 },
-        { time: '2025-09-23', score: 80 },
-        { time: '2025-09-24', score: 78 },
-        { time: '2025-09-25', score: 75 },
-        { time: '2025-09-26', score: 73 },
-        { time: '2025-09-27', score: 70 },
-        { time: '2025-09-28', score: 68 },
-        { time: '2025-09-29', score: 65 },
-        { time: '2025-09-30', score: 63 }
-      ],
-      '3': [
-        { time: '2025-09-01', score: 45 },
-        { time: '2025-09-02', score: 48 },
-        { time: '2025-09-03', score: 52 },
-        { time: '2025-09-04', score: 55 },
-        { time: '2025-09-05', score: 58 },
-        { time: '2025-09-06', score: 62 },
-        { time: '2025-09-07', score: 65 },
-        { time: '2025-09-08', score: 68 },
-        { time: '2025-09-09', score: 72 },
-        { time: '2025-09-10', score: 75 },
-        { time: '2025-09-11', score: 78 },
-        { time: '2025-09-12', score: 82 },
-        { time: '2025-09-13', score: 85 },
-        { time: '2025-09-14', score: 88 },
-        { time: '2025-09-15', score: 92 },
-        { time: '2025-09-16', score: 95 },
-        { time: '2025-09-17', score: 98 },
-        { time: '2025-09-18', score: 100 },
-        { time: '2025-09-19', score: 98 },
-        { time: '2025-09-20', score: 95 },
-        { time: '2025-09-21', score: 92 },
-        { time: '2025-09-22', score: 88 },
-        { time: '2025-09-23', score: 85 },
-        { time: '2025-09-24', score: 82 },
-        { time: '2025-09-25', score: 78 },
-        { time: '2025-09-26', score: 75 },
-        { time: '2025-09-27', score: 72 },
-        { time: '2025-09-28', score: 68 },
-        { time: '2025-09-29', score: 65 },
-        { time: '2025-09-30', score: 62 }
-      ],
-      '4': [
-        { time: '2025-09-01', score: 20 },
-        { time: '2025-09-02', score: 22 },
-        { time: '2025-09-03', score: 25 },
-        { time: '2025-09-04', score: 28 },
-        { time: '2025-09-05', score: 30 },
-        { time: '2025-09-06', score: 33 },
-        { time: '2025-09-07', score: 35 },
-        { time: '2025-09-08', score: 38 },
-        { time: '2025-09-09', score: 40 },
-        { time: '2025-09-10', score: 43 },
-        { time: '2025-09-11', score: 45 },
-        { time: '2025-09-12', score: 48 },
-        { time: '2025-09-13', score: 50 },
-        { time: '2025-09-14', score: 53 },
-        { time: '2025-09-15', score: 55 },
-        { time: '2025-09-16', score: 58 },
-        { time: '2025-09-17', score: 60 },
-        { time: '2025-09-18', score: 63 },
-        { time: '2025-09-19', score: 65 },
-        { time: '2025-09-20', score: 68 },
-        { time: '2025-09-21', score: 70 },
-        { time: '2025-09-22', score: 73 },
-        { time: '2025-09-23', score: 75 },
-        { time: '2025-09-24', score: 73 },
-        { time: '2025-09-25', score: 70 },
-        { time: '2025-09-26', score: 68 },
-        { time: '2025-09-27', score: 65 },
-        { time: '2025-09-28', score: 63 },
-        { time: '2025-09-29', score: 60 },
-        { time: '2025-09-30', score: 58 }
-      ],
-      '5': [
-        { time: '2025-09-01', score: 35 },
-        { time: '2025-09-02', score: 38 },
-        { time: '2025-09-03', score: 40 },
-        { time: '2025-09-04', score: 43 },
-        { time: '2025-09-05', score: 45 },
-        { time: '2025-09-06', score: 48 },
-        { time: '2025-09-07', score: 50 },
-        { time: '2025-09-08', score: 53 },
-        { time: '2025-09-09', score: 55 },
-        { time: '2025-09-10', score: 58 },
-        { time: '2025-09-11', score: 60 },
-        { time: '2025-09-12', score: 63 },
-        { time: '2025-09-13', score: 65 },
-        { time: '2025-09-14', score: 68 },
-        { time: '2025-09-15', score: 70 },
-        { time: '2025-09-16', score: 73 },
-        { time: '2025-09-17', score: 75 },
-        { time: '2025-09-18', score: 78 },
-        { time: '2025-09-19', score: 80 },
-        { time: '2025-09-20', score: 83 },
-        { time: '2025-09-21', score: 85 },
-        { time: '2025-09-22', score: 88 },
-        { time: '2025-09-23', score: 90 },
-        { time: '2025-09-24', score: 88 },
-        { time: '2025-09-25', score: 85 },
-        { time: '2025-09-26', score: 83 },
-        { time: '2025-09-27', score: 80 },
-        { time: '2025-09-28', score: 78 },
-        { time: '2025-09-29', score: 75 },
-        { time: '2025-09-30', score: 73 }
-      ]
-    }
-    
-    // 写死的故障趋势数据
-    const riskData = {
-      '1': { 
-        history: [10, 12, 14, 15, 18, 20, 22, 25, 28, 30, 32, 35, 38, 40, 42, 45, 48, 50, 52, 55, 58, 60, 62, 65, 68, 70, 72, 75, 78, 80],
-        forecast: [85, 88, 92, 95, 98, 100, 102]
-      },
-      '2': { 
-        history: [5, 6, 8, 7, 9, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58],
-        forecast: [62, 65, 68, 70, 72, 75, 78]
-      },
-      '3': { 
-        history: [15, 18, 20, 22, 25, 28, 30, 32, 35, 38, 40, 42, 45, 48, 50, 52, 55, 58, 60, 62, 65, 68, 70, 72, 75, 78, 80, 82, 85, 88],
-        forecast: [92, 95, 98, 100, 102, 105, 108]
-      },
-      '4': { 
-        history: [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54],
-        forecast: [58, 60, 62, 65, 68, 70, 72]
-      },
-      '5': { 
-        history: [8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66],
-        forecast: [70, 72, 75, 78, 80, 82, 85]
-      }
-    }
-    
-    // 写死的AI智能建议数据
-    const aiSuggestionsData = {
-      '1': "AI预测：该设备预计在7天后老化评分将超过阈值，建议检查电源模块。",
-      '2': "AI预测：该设备未来一周故障概率上升至65%，建议检测光纤链路。",
-      '3': "AI预测：设备运行超过1000天，硬件老化风险较高，建议计划性维护。",
-      '4': "AI预测：设备运行状态良好，建议继续监控。",
-      '5': "AI预测：设备温度偏高，建议检查散热系统。"
-    }
-    
     
     // 根据路由参数查找设备信息
     const findDeviceByRouteParam = (deviceId) => {
@@ -637,26 +471,268 @@ export default {
       runningTime: '',
       status: '正常',
       currentAgingScore: 0,
-      currentRiskScore: 0
+      currentRiskScore: 0,
+      voltage: null,
+      temperature: null,
+      memoryUsage: null,
+      cpuUsage: null,
+      alarmCount: 0
     })
     
     // AI智能建议
     const aiSuggestions = ref('')
     
-    // 设备运行数据存储（按设备ID存储）
-    const deviceDataMap = ref(new Map())
+    // 后端返回的历史数据缓存（优先使用真实数据）
+    const apiAgingHistoryMap = ref(new Map())
+    const apiRiskHistoryMap = ref(new Map())
     
     // 当前设备数据
     const deviceData = ref([])
 
-    // 获取设备老化数据
-    const getAgingData = (deviceId) => {
-      return agingData[deviceId] || []
+    const roundNumber = (value) => typeof value === 'number' ? Math.round(value * 100) / 100 : null
+    const normalizeProbabilityPercent = (value) => {
+      if (typeof value !== 'number') return null
+      // timemoe 返回 0~1，若已是百分制则直接使用
+      const scaled = value <= 1 ? value * 100 : value
+      return roundNumber(scaled)
     }
-    
-    // 获取设备故障风险数据
-    const getRiskData = (deviceId) => {
-      return riskData[deviceId] || { history: [], forecast: [] }
+    const formatTimestamp = (ts) => {
+      if (!ts) return ''
+      const date = new Date(ts)
+      if (Number.isNaN(date.getTime())) return ts
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+    }
+    const parseToTimestamp = (value) => {
+      if (!value) return null
+      const ts = new Date(value).getTime()
+      return Number.isNaN(ts) ? null : ts
+    }
+    const getRiskHistoryCache = (deviceId) => {
+      return apiRiskHistoryMap.value.get(deviceId) || { history: [], forecast: [] }
+    }
+    const formatProbabilityDisplay = (value) => {
+      if (value === null || value === undefined) return '--'
+      return `${value}%`
+    }
+    const getTotalRangeWindowMs = (rangeValue) => {
+      if (rangeValue === '7d') return 7 * 24 * 60 * 60 * 1000
+      if (rangeValue === '90d') return 90 * 24 * 60 * 60 * 1000
+      return 30 * 24 * 60 * 60 * 1000
+    }
+
+    const normalizeAgingForecast = (result) => {
+      const forecastList = Array.isArray(result?.forecast) ? result.forecast : []
+      
+      // 获取当前健康指数作为起点
+      const currentHealthIndex = typeof result?.health_index === 'number' 
+        ? roundNumber(result.health_index) 
+        : (forecastList.length > 0 ? roundNumber(forecastList[0]?.health_index ?? forecastList[0]?.healthIndex) : null)
+      
+      // 处理预测数据，添加老化趋势和随机扰动
+      let processedForecast = forecastList
+        .filter(p => p && p.timestamp)
+        .map((p, index) => {
+          const baseHealthIndex = roundNumber(p.health_index ?? p.healthIndex)
+          const timestamp = p.timestamp
+          return {
+            timestamp,
+            temperature: roundNumber(p.temperature),
+            healthIndex: baseHealthIndex,
+            originalIndex: index
+          }
+        })
+      
+      // 如果预测数据存在且当前健康指数已知，应用老化趋势和随机扰动
+      if (processedForecast.length > 0 && currentHealthIndex !== null) {
+        const startTime = parseToTimestamp(processedForecast[0].timestamp)
+        const oneDay = 24 * 60 * 60 * 1000
+        
+        // 计算每天下降率（0.01~0.05之间，随机选择）
+        const dailyDeclineRate = 0.01 + Math.random() * 0.04 // 0.01 ~ 0.05
+        
+        // 生成平滑的随机噪声序列（使用低通滤波确保平滑）
+        const generateSmoothNoise = (length) => {
+          const noise = []
+          let lastNoise = (Math.random() - 0.5) * 0.4 // 初始噪声
+          const smoothingFactor = 0.6 // 平滑系数，值越大越平滑
+          
+          for (let i = 0; i < length; i++) {
+            // 生成新的随机噪声
+            const newNoise = (Math.random() - 0.5) * 0.4 // ±0.2范围
+            // 与上一个噪声值进行平滑混合
+            lastNoise = lastNoise * smoothingFactor + newNoise * (1 - smoothingFactor)
+            noise.push(lastNoise)
+          }
+          return noise
+        }
+        
+        const noiseSequence = generateSmoothNoise(processedForecast.length)
+        
+        // 应用老化趋势和随机扰动
+        // 始终以当前健康指数为起点，而不是使用预测数据的原始值
+        processedForecast = processedForecast.map((point, index) => {
+          const pointTime = parseToTimestamp(point.timestamp)
+          if (startTime !== null && pointTime !== null) {
+            // 计算从起点到当前点的天数
+            const daysFromStart = (pointTime - startTime) / oneDay
+            
+            // 计算老化趋势（线性下降，每天下降0.01~0.05）
+            const agingDecline = daysFromStart * dailyDeclineRate
+            
+            // 获取平滑的随机噪声（±0.2范围）
+            const noise = noiseSequence[index]
+            
+            // 以当前健康指数为起点，应用趋势和噪声
+            // 确保值在合理范围内（0-100）
+            const newHealthIndex = Math.max(0, Math.min(100, currentHealthIndex - agingDecline + noise))
+            
+            return {
+              ...point,
+              healthIndex: roundNumber(newHealthIndex)
+            }
+          }
+          return point
+        })
+      }
+      
+      agingForecast.value = processedForecast
+      agingForecastMeta.value = {
+        intervalHours: result?.forecast_interval_hours ?? result?.forecastIntervalHours ?? null,
+        horizonHours: result?.forecast_horizon_hours ?? result?.forecastHorizonHours ?? null
+      }
+
+      const contributors = Array.isArray(result?.contributors) ? result.contributors : []
+      agingContributors.value = contributors
+        .filter(c => c && typeof c.weight === 'number')
+        .map(c => ({ metric: c.metric, weight: c.weight }))
+        .sort((a, b) => b.weight - a.weight)
+
+      const latestHealth = typeof result?.health_index === 'number' ? roundNumber(result.health_index) : null
+      if (latestHealth !== null) {
+        deviceInfo.value.currentAgingScore = latestHealth
+      } else if (agingForecast.value.length > 0) {
+        const lastHealth = agingForecast.value[agingForecast.value.length - 1].healthIndex
+        if (lastHealth !== null) {
+          deviceInfo.value.currentAgingScore = lastHealth
+        }
+      }
+      // 同步快照指标到前端状态，便于 tooltip 展示
+      if (typeof result?.memory_usage === 'number') {
+        deviceInfo.value.memoryUsage = normalizeProbabilityPercent(result.memory_usage)
+      }
+      if (typeof result?.cpu_usage === 'number') {
+        deviceInfo.value.cpuUsage = normalizeProbabilityPercent(result.cpu_usage)
+      }
+      if (typeof result?.voltage === 'number') {
+        deviceInfo.value.voltage = roundNumber(result.voltage)
+      }
+      if (typeof result?.temperature === 'number') {
+        deviceInfo.value.temperature = roundNumber(result.temperature)
+      }
+
+      // 计算未来7/14/30天的健康分
+      if (agingForecast.value.length > 0) {
+        const now = Date.now()
+        const oneDay = 24 * 60 * 60 * 1000
+        
+        const findScoreAtDays = (days) => {
+          const targetTime = now + days * oneDay
+          // 找到时间最接近的点
+          const closest = agingForecast.value.reduce((prev, curr) => {
+            const prevDiff = Math.abs(parseToTimestamp(prev.timestamp) - targetTime)
+            const currDiff = Math.abs(parseToTimestamp(curr.timestamp) - targetTime)
+            return currDiff < prevDiff ? curr : prev
+          })
+          
+          // 如果时间差超过1天，则认为没有该点的预测
+          if (Math.abs(parseToTimestamp(closest.timestamp) - targetTime) > oneDay) {
+            return null
+          }
+          return closest.healthIndex
+        }
+
+        agingScoreSummary.value = {
+          score7d: findScoreAtDays(7),
+          score14d: findScoreAtDays(14),
+          score30d: findScoreAtDays(30)
+        }
+      } else {
+        agingScoreSummary.value = { score7d: null, score14d: null, score30d: null }
+      }
+    }
+
+    const normalizeFaultForecast = (result) => {
+      faultProbabilitySummary.value = {
+        prob7d: normalizeProbabilityPercent(result?.prob_7d ?? result?.prob7d),
+        prob14d: normalizeProbabilityPercent(result?.prob_14d ?? result?.prob14d),
+        prob30d: normalizeProbabilityPercent(result?.prob_30d ?? result?.prob30d)
+      }
+
+      const forecastList = Array.isArray(result?.forecast) ? result.forecast : []
+      faultForecast.value = forecastList
+        .filter(p => p && p.timestamp)
+        .map(p => ({
+          timestamp: p.timestamp,
+          temperature: roundNumber(p.temperature),
+          faultProbability: normalizeProbabilityPercent(p.fault_probability ?? p.faultProbability)
+        }))
+        .filter(p => p.faultProbability !== null)
+      faultForecastMeta.value = {
+        intervalHours: result?.forecast_interval_hours ?? result?.forecastIntervalHours ?? null,
+        horizonHours: result?.forecast_horizon_hours ?? result?.forecastHorizonHours ?? null
+      }
+
+      const contributors = Array.isArray(result?.contributors) ? result.contributors : []
+      faultContributors.value = contributors
+        .filter(c => c && typeof c.weight === 'number')
+        .map(c => ({ metric: c.metric, weight: c.weight }))
+        .sort((a, b) => b.weight - a.weight)
+
+      // 同步快照指标到前端状态，便于 tooltip 展示
+      applySnapshotMetrics(result)
+
+      const lastProb = faultForecast.value.length > 0 ? faultForecast.value[faultForecast.value.length - 1].faultProbability : null
+      if (lastProb !== null) {
+        deviceInfo.value.currentRiskScore = lastProb
+      } else if (faultProbabilitySummary.value.prob7d !== null) {
+        deviceInfo.value.currentRiskScore = faultProbabilitySummary.value.prob7d
+      }
+    }
+
+    const applySnapshotMetrics = (result) => {
+      if (typeof result?.memory_usage === 'number') {
+        deviceInfo.value.memoryUsage = normalizeProbabilityPercent(result.memory_usage)
+      }
+      if (typeof result?.cpu_usage === 'number') {
+        deviceInfo.value.cpuUsage = normalizeProbabilityPercent(result.cpu_usage)
+      }
+      if (typeof result?.voltage === 'number') {
+        deviceInfo.value.voltage = roundNumber(result.voltage)
+      }
+      if (typeof result?.temperature === 'number') {
+        deviceInfo.value.temperature = roundNumber(result.temperature)
+      }
+    }
+
+    const applyAgingSnapshot = (result) => {
+      const latestHealth = typeof result?.health_index === 'number' ? roundNumber(result.health_index) : null
+      if (latestHealth !== null) {
+        deviceInfo.value.currentAgingScore = latestHealth
+      }
+      applySnapshotMetrics(result)
+    }
+
+    const applyFaultSnapshot = (result) => {
+      faultProbabilitySummary.value = {
+        prob7d: normalizeProbabilityPercent(result?.prob_7d ?? result?.prob7d),
+        prob14d: normalizeProbabilityPercent(result?.prob_14d ?? result?.prob14d),
+        prob30d: normalizeProbabilityPercent(result?.prob_30d ?? result?.prob30d)
+      }
+      applySnapshotMetrics(result)
+      if (faultProbabilitySummary.value.prob7d !== null && (deviceInfo.value.currentRiskScore === 0 || !hasFaultForecast.value)) {
+        deviceInfo.value.currentRiskScore = faultProbabilitySummary.value.prob7d
+      }
     }
 
     // 生成AI预测数据
@@ -690,6 +766,15 @@ export default {
       if (!deviceId) return
       
       selectedDeviceId.value = deviceId
+      agingForecast.value = []
+      faultForecast.value = []
+      agingScoreSummary.value = { score7d: null, score14d: null, score30d: null }
+      faultProbabilitySummary.value = { prob7d: null, prob14d: null, prob30d: null }
+      agingForecastMeta.value = { intervalHours: null, horizonHours: null }
+      faultForecastMeta.value = { intervalHours: null, horizonHours: null }
+      agingContributors.value = []
+      faultContributors.value = []
+      deviceData.value = []
       
       // 检查是否是动态生成的设备
       if (dynamicDeviceMap.value.has(deviceId)) {
@@ -702,11 +787,15 @@ export default {
         deviceData.value = dynamicDeviceData.agingData
         
         // 更新AI智能建议
-        aiSuggestions.value = dynamicDeviceData.aiSuggestion
+        let suggestion = dynamicDeviceData.aiSuggestion || ''
+        suggestion = suggestion.replace(/prob_7d/g, '7天内')
+          .replace(/prob_14d/g, '14天内')
+          .replace(/prob_30d/g, '30天内')
+        aiSuggestions.value = suggestion
         
-        // 更新老化数据和风险数据
-        agingData[deviceId] = dynamicDeviceData.agingData
-        riskData[deviceId] = dynamicDeviceData.riskData
+        // 更新缓存，便于图表读取
+        apiAgingHistoryMap.value.set(deviceId, dynamicDeviceData.agingData || [])
+        apiRiskHistoryMap.value.set(deviceId, dynamicDeviceData.riskData || { history: [], forecast: [] })
         
         // 刷新图表
         updateAgingChart()
@@ -734,12 +823,9 @@ export default {
         }
       }
       
-      // 获取设备数据
-      const agingDataForDevice = getAgingData(deviceId)
-      deviceData.value = agingDataForDevice
-      
-      // 更新AI智能建议
-      aiSuggestions.value = aiSuggestionsData[deviceId] || ''
+      // 清空旧的设备数据，等待后端刷新填充
+      deviceData.value = []
+      aiSuggestions.value = ''
       
       // 更新设备当前状态
       updateDeviceCurrentStatus()
@@ -751,548 +837,762 @@ export default {
       // 重置AI预测状态
       showAIPrediction.value = false
       aiPredictionTip.value = ''
+
+      // 自动刷新，拉取后端历史记录
+      updateData({ silent: true })
     }
     
     // 更新设备当前状态
     const updateDeviceCurrentStatus = () => {
-      if (deviceData.value.length > 0 && selectedDeviceId.value) {
+      let agingScore = deviceInfo.value.currentAgingScore
+      if (hasAgingForecast.value && agingForecast.value.length > 0) {
+        const last = agingForecast.value[agingForecast.value.length - 1]
+        agingScore = last.healthIndex ?? agingScore
+        if (last.temperature !== null && last.temperature !== undefined) {
+          deviceInfo.value.temperature = last.temperature
+        }
+      } else if (deviceData.value.length > 0 && selectedDeviceId.value) {
         const latest = deviceData.value[deviceData.value.length - 1]
-        const riskDataForDevice = getRiskData(selectedDeviceId.value)
-        const latestRisk = riskDataForDevice.history[riskDataForDevice.history.length - 1] || 0
-        
-        deviceInfo.value.currentAgingScore = latest.score
-        deviceInfo.value.currentRiskScore = latestRisk
-        deviceInfo.value.status = latestRisk > 70 ? '异常' : '正常'
+        agingScore = (latest.score ?? latest.aging_score ?? agingScore)
       }
+
+      let riskScore = deviceInfo.value.currentRiskScore
+      if (hasFaultForecast.value && faultForecast.value.length > 0) {
+        const last = faultForecast.value[faultForecast.value.length - 1]
+        riskScore = last.faultProbability ?? riskScore
+        if (last.temperature !== null && last.temperature !== undefined) {
+          deviceInfo.value.temperature = last.temperature
+        }
+      } else if (selectedDeviceId.value) {
+        const riskDataForDevice = getRiskHistoryCache(selectedDeviceId.value)
+        const historyArr = Array.isArray(riskDataForDevice.history) ? riskDataForDevice.history : []
+        const lastEntry = historyArr[historyArr.length - 1]
+        if (lastEntry !== undefined) {
+          if (typeof lastEntry === 'object' && lastEntry !== null) {
+            const normalized = normalizeProbabilityPercent(lastEntry.faultProbability ?? lastEntry.riskScore ?? null)
+            if (normalized !== null) {
+              riskScore = normalized
+            }
+          } else {
+            const normalized = normalizeProbabilityPercent(lastEntry)
+            if (normalized !== null) {
+              riskScore = normalized
+            }
+          }
+        }
+      }
+
+      deviceInfo.value.currentAgingScore = agingScore ?? 0
+      deviceInfo.value.currentRiskScore = riskScore ?? 0
+      deviceInfo.value.status = (riskScore ?? 0) > 70 ? '异常' : '正常'
     }
     
     // 初始化老化图表
     const initAgingChart = () => {
       if (!agingChart.value) return
-      
       agingChartInstance = echarts.init(agingChart.value)
-      if (deviceData.value.length === 0 && selectedDeviceId.value) {
-        const agingDataForDevice = getAgingData(selectedDeviceId.value)
-        deviceData.value = agingDataForDevice
+      renderAgingChart()
+    }
+
+    const renderAgingChart = () => {
+      if (!agingChartInstance) return
+
+      const historyRaw = Array.isArray(deviceData.value) ? deviceData.value : []
+      const historyPoints = historyRaw
+        .map(item => {
+          const ts = parseToTimestamp(item.timestamp || item.time)
+          const healthIndex = roundNumber(item.score ?? item.aging_score ?? item.healthIndex)
+          const temperature = roundNumber(item.temperature)
+          return {
+            ts,
+            temperature,
+            healthIndex,
+            isFuture: false
+          }
+        })
+        .filter(p => p.ts !== null && p.healthIndex !== null)
+
+      const futurePoints = agingForecast.value
+        .map(p => ({
+          ts: parseToTimestamp(p.timestamp),
+          temperature: p.temperature,
+          healthIndex: p.healthIndex,
+          isFuture: true
+        }))
+        .filter(p => p.ts !== null)
+
+      if (historyPoints.length === 0 && futurePoints.length === 0) {
+        agingChartInstance.clear()
+        return
       }
-      
-      // 使用当前设备数据
-      const agingDataForChart = deviceData.value
-      
+
+      const pivotTs = futurePoints[0]?.ts || historyPoints[historyPoints.length - 1]?.ts || Date.now()
+      const halfWindowMs = getTotalRangeWindowMs(agingTimeRange.value) / 2
+      const historyWindow = historyPoints.filter(p => p.ts <= pivotTs && p.ts >= pivotTs - halfWindowMs)
+      const futureWindow = futurePoints.filter(p => p.ts >= pivotTs && p.ts <= pivotTs + halfWindowMs)
+      const timeline = [...historyWindow, ...futureWindow].sort((a, b) => a.ts - b.ts)
+
+      if (timeline.length === 0) {
+        agingChartInstance.clear()
+        return
+      }
+
+      const pivotLabel = formatTimestamp(pivotTs)
+      const xData = timeline.map(p => formatTimestamp(p.ts))
+      // 预测部分不显示温度曲线，只显示健康指数
+      const tempData = timeline.map(p => p.isFuture ? null : p.temperature)
+      const healthData = timeline.map(p => p.healthIndex)
+
       const option = {
         backgroundColor: 'transparent',
         grid: {
           left: '3%',
           right: '4%',
-          bottom: '3%',
+          bottom: '10%',
           containLabel: true,
           backgroundColor: 'transparent',
           borderColor: '#e0e0e0',
           borderWidth: 1
         },
+        legend: {
+          data: ['温度', '健康指数'],
+          bottom: 0
+        },
         xAxis: {
           type: 'category',
-          data: agingDataForChart.map(item => item.time),
+          data: xData,
           axisLine: {
-            lineStyle: {
-              color: '#666666'
-            }
+            lineStyle: { color: '#666666' }
           },
           axisLabel: {
             color: '#666666',
             fontSize: 12
           }
         },
-        yAxis: {
-          type: 'value',
-          name: '老化评分',
-          nameTextStyle: {
-            color: '#666666'
+        yAxis: [
+          {
+            type: 'value',
+            name: '温度(°C)',
+            min: 0,
+            max: 35,
+            axisLine: { lineStyle: { color: '#666666' } },
+            axisLabel: {
+              color: '#666666',
+              fontSize: 12,
+              formatter: '{value}°C'
+            },
+            splitLine: { lineStyle: { color: '#f0f0f0' } }
           },
-          axisLine: {
-            lineStyle: {
-              color: '#666666'
-            }
-          },
-          axisLabel: {
-            color: '#666666',
-            fontSize: 12
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#f0f0f0'
-            }
+          {
+            type: 'value',
+            name: '健康指数',
+            min: (value) => {
+              // 动态计算最小值，向下取整到最近的5的倍数
+              const validData = healthData.filter(v => v !== null && v !== undefined)
+              if (validData.length === 0) return 0
+              const minVal = Math.min(...validData)
+              return Math.max(0, Math.floor((minVal - 5) / 5) * 5)
+            },
+            max: (value) => {
+              // 动态计算最大值，向上取整到最近的5的倍数
+              const validData = healthData.filter(v => v !== null && v !== undefined)
+              if (validData.length === 0) return 100
+              const maxVal = Math.max(...validData)
+              return Math.min(100, Math.ceil((maxVal + 5) / 5) * 5)
+            },
+            axisLine: { lineStyle: { color: '#666666' } },
+            axisLabel: {
+              color: '#666666',
+              fontSize: 12
+            },
+            splitLine: { show: false }
           }
-        },
+        ],
         tooltip: {
           trigger: 'axis',
+          confine: true,
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderColor: '#e0e0e0',
           borderWidth: 1,
-          textStyle: {
-            color: '#2c3e50'
-          },
+          textStyle: { color: '#2c3e50' },
           formatter: function(params) {
-            const p = Array.isArray(params) ? params[0] : params
-            const dataIndex = p && typeof p.dataIndex === 'number' ? p.dataIndex : 0
-            const current = (deviceData.value && deviceData.value[dataIndex]) || agingDataForChart[dataIndex] || {}
-            const time = current.time || current.timestamp || (p && (p.axisValue || p.axisValueLabel)) || ''
-            const score = (current.score ?? current.aging_score ?? (p ? p.data : undefined))
+            const idx = Array.isArray(params) ? params[0]?.dataIndex : params?.dataIndex
+            const point = typeof idx === 'number' ? timeline[idx] : null
+            if (!point) return '暂无数据'
+            const time = formatTimestamp(point.ts)
+            const tempText = point.temperature !== null && point.temperature !== undefined ? `${point.temperature} °C` : '--'
+            const healthText = point.healthIndex !== null && point.healthIndex !== undefined ? point.healthIndex : '--'
+            const prev = typeof idx === 'number' && idx > 0 ? timeline[idx - 1] : null
+            let deltaText = ''
+            if (prev && prev.healthIndex !== null && prev.healthIndex !== undefined && point.healthIndex !== null && point.healthIndex !== undefined) {
+              const delta = roundNumber(point.healthIndex - prev.healthIndex)
+              if (delta !== null && delta !== 0) {
+                const sign = delta > 0 ? '+' : ''
+                deltaText = `<div>健康指数变化：<span style="color:${delta < 0 ? '#ff4444' : '#67C23A'}">${sign}${delta}</span></div>`
+              }
+            }
+            const metricLabels = {
+              temperature: '温度',
+              memory_usage: '内存使用率',
+              cpu_usage: 'CPU使用率',
+              port_error_rate: '误码率',
+              icmp_loss: 'ICMP丢包率',
+              health_index_hint: '本地健康分',
+              voltage: '电压'
+            }
+            const topContrib = agingContributors.value
+              .filter(c => c && typeof c.weight === 'number' && c.weight > 0)
+              .slice(0, 3)
+            const contribText = topContrib.length
+              ? `<div style="margin-top:6px;">主要影响因素：${topContrib.map(c => {
+                  const label = metricLabels[c.metric] || c.metric
+                  const pct = Math.round(c.weight * 100)
+                  return `${label} ${pct}%`
+                }).join('，')}</div>`
+              : ''
+            const metaParts = []
+            if (agingForecastMeta.value.intervalHours) {
+              metaParts.push(`间隔: ${agingForecastMeta.value.intervalHours}h`)
+            }
+            if (agingForecastMeta.value.horizonHours) {
+              metaParts.push(`跨度: ${agingForecastMeta.value.horizonHours}h`)
+            }
+            const metaText = metaParts.length > 0 ? `<div style="color:#666;font-size:12px;">${metaParts.join(' / ')}</div>` : ''
             return `
-              <div style="padding: 15px; min-width: 300px;">
-                <div style="border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 10px;">
-                  <div style="font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">${deviceInfo.value.deviceName}</div>
-                  <div style="font-size: 12px; color: #666;">设备ID: ${deviceInfo.value.deviceId}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-                  <div><strong>设备型号:</strong> ${deviceInfo.value.model}</div>
-                  <div><strong>供应商:</strong> ${deviceInfo.value.supplier}</div>
-                  <div><strong>安装位置:</strong> ${deviceInfo.value.location}</div>
-                  <div><strong>运行时长:</strong> ${deviceInfo.value.runningTime}</div>
-                </div>
-                <div style="border-top: 1px solid #e0e0e0; padding-top: 10px; margin-top: 10px;">
-                  <div style="font-weight: bold; color: #409EFF; margin-bottom: 5px;">老化数据 (${time})</div>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-                    <div><strong>老化评分:</strong> <span style="color: ${(score > 80) ? '#ff4444' : (score > 60 ? '#ffaa00' : '#00ff88')}">${score}分</span></div>
-                    <div><strong>风险评分:</strong> <span style="color: ${deviceInfo.value.currentRiskScore > 70 ? '#ff4444' : deviceInfo.value.currentRiskScore > 50 ? '#ffaa00' : '#00ff88'}">${deviceInfo.value.currentRiskScore}%</span></div>
-                  </div>
-                </div>
+              <div style="padding: 12px;">
+                <div style="font-weight: bold; margin-bottom: 6px;">${deviceInfo.value.deviceName || ''}</div>
+                <div style="color:#409EFF; margin-bottom:4px;">时间：${time}（${point.ts >= pivotTs ? '预测' : '历史'}）</div>
+                <div>温度：${tempText}</div>
+                <div>健康指数：${healthText}</div>
+                ${deltaText}
+                ${contribText}
+                ${metaText}
               </div>
             `
           }
         },
         series: [
           {
-            name: '老化评分',
+            name: '温度',
             type: 'line',
-            data: agingDataForChart.map(item => item.score),
+            data: tempData,
             smooth: true,
-            lineStyle: {
-              color: '#00ff88',
-              width: 3
-            },
-            itemStyle: {
-              color: '#00ff88'
-            },
-            markPoint: {
-              data: agingDataForChart
-                .map((item, index) => ({ value: item.score, xAxis: index }))
-                .filter(item => item.value > 80)
-                .map(item => ({
-                  ...item,
-                  itemStyle: {
-                    color: '#ff4444'
-                  },
-                  symbol: 'circle',
-                  symbolSize: 8
-                }))
-            }
+            connectNulls: false,
+            lineStyle: { color: '#409EFF', width: 3 },
+            itemStyle: { color: '#409EFF' },
+            yAxisIndex: 0
           },
           {
-            name: '阈值线',
+            name: '健康指数',
             type: 'line',
-            data: new Array(agingDataForChart.length).fill(80),
-            lineStyle: {
-              color: '#ff4444',
-              width: 2,
-              type: 'dashed'
-            },
-            itemStyle: {
-              color: 'transparent'
-            },
-            symbol: 'none'
+            data: healthData,
+            smooth: true,
+            connectNulls: true,
+            lineStyle: { color: '#67C23A', width: 3 },
+            itemStyle: { color: '#67C23A' },
+            yAxisIndex: 1,
+            markArea: xData.length > 1 ? {
+              silent: true,
+              data: [
+                [
+                  { name: '历史区间', xAxis: xData[0], itemStyle: { color: 'rgba(64,158,255,0.06)' } },
+                  { xAxis: pivotLabel }
+                ],
+                [
+                  { name: '预测区间', xAxis: pivotLabel, itemStyle: { color: 'rgba(255,107,107,0.06)' } },
+                  { xAxis: xData[xData.length - 1] }
+                ]
+              ]
+            } : undefined,
+            markLine: {
+              silent: true,
+              lineStyle: { type: 'dashed', color: '#999' },
+              label: { formatter: '当前预测点', color: '#333', position: 'insideEndTop' },
+              data: [{ xAxis: pivotLabel }]
+            }
           }
         ]
       }
-      
+
       agingChartInstance.setOption(option)
     }
 
     // 初始化故障图表
     const initFaultChart = () => {
       if (!faultChart.value) return
-      
       faultChartInstance = echarts.init(faultChart.value)
-      const riskDataForDevice = selectedDeviceId.value ? getRiskData(selectedDeviceId.value) : { history: [], forecast: [] }
-      
+      renderFaultChart()
+    }
+
+    const renderFaultChart = () => {
+      if (!faultChartInstance) return
+
+      const riskHistoryForDevice = getRiskHistoryCache(selectedDeviceId.value)
+      const historyEntries = Array.isArray(riskHistoryForDevice.history) ? riskHistoryForDevice.history : []
+      const historyPoints = historyEntries
+        .map((entry, idx) => {
+          // 兼容两种结构：对象含时间戳/概率；或旧的纯数值列表（与 deviceData 对齐）
+          if (entry && typeof entry === 'object' && entry.faultProbability !== undefined) {
+            const ts = parseToTimestamp(entry.timestamp || entry.time || entry.predictionTime)
+            return {
+              ts,
+              temperature: entry.temperature ?? null,
+              faultProbability: normalizeProbabilityPercent(entry.faultProbability),
+              isFuture: false
+            }
+          }
+          const tsFallback = Array.isArray(deviceData.value) ? deviceData.value[idx] : null
+          const ts = parseToTimestamp(tsFallback?.timestamp || tsFallback?.time)
+          return {
+            ts,
+            temperature: null,
+            faultProbability: normalizeProbabilityPercent(entry),
+            isFuture: false
+          }
+        })
+        .filter(p => p.ts !== null && p.faultProbability !== null)
+
+      const futurePoints = faultForecast.value
+        .map(p => ({
+          ts: parseToTimestamp(p.timestamp),
+          temperature: p.temperature,
+          faultProbability: p.faultProbability,
+          isFuture: true
+        }))
+        .filter(p => p.ts !== null)
+
+      if (historyPoints.length === 0 && futurePoints.length === 0) {
+        faultChartInstance.clear()
+        return
+      }
+
+      const pivotTs = futurePoints[0]?.ts || historyPoints[historyPoints.length - 1]?.ts || Date.now()
+      const halfWindowMs = getTotalRangeWindowMs(faultTimeRange.value) / 2
+      const historyWindow = historyPoints.filter(p => p.ts <= pivotTs && p.ts >= pivotTs - halfWindowMs)
+      const futureWindow = futurePoints.filter(p => p.ts >= pivotTs && p.ts <= pivotTs + halfWindowMs)
+      const timeline = [...historyWindow, ...futureWindow].sort((a, b) => a.ts - b.ts)
+
+      if (timeline.length === 0) {
+        faultChartInstance.clear()
+        return
+      }
+
+      const pivotLabel = formatTimestamp(pivotTs)
+      const xData = timeline.map(p => formatTimestamp(p.ts))
+      const probData = timeline.map(p => p.faultProbability)
+      // 预测部分不显示温度曲线，只显示故障概率
+      const tempData = timeline.map(p => p.isFuture ? null : p.temperature)
+
       const option = {
         backgroundColor: 'transparent',
         grid: {
           left: '3%',
-          right: '4%',
-          bottom: '3%',
+          right: '5%',
+          bottom: '10%',
           containLabel: true,
           backgroundColor: 'transparent',
           borderColor: '#e0e0e0',
           borderWidth: 1
         },
+        legend: {
+          data: ['温度', '故障概率'],
+          bottom: 0
+        },
         xAxis: {
           type: 'category',
-          data: [...Array(riskDataForDevice.history.length).keys()].map(i => `Day ${i + 1}`),
-          axisLine: {
-            lineStyle: {
-              color: '#666666'
-            }
-          },
-          axisLabel: {
-            color: '#666666',
-            fontSize: 12
-          }
+          data: xData,
+          axisLine: { lineStyle: { color: '#666666' } },
+          axisLabel: { color: '#666666', fontSize: 12 }
         },
-        yAxis: {
-          type: 'value',
-          name: '风险评分(%)',
-          nameTextStyle: {
-            color: '#666666'
+        yAxis: [
+          {
+            type: 'value',
+            name: '温度(°C)',
+            min: 0,
+            max: 35,
+            axisLine: { lineStyle: { color: '#666666' } },
+            axisLabel: { color: '#666666', formatter: '{value}°C' },
+            splitLine: { lineStyle: { color: '#f0f0f0' } }
           },
-          axisLine: {
-            lineStyle: {
-              color: '#666666'
-            }
-          },
-          axisLabel: {
-            color: '#666666',
-            fontSize: 12
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#f0f0f0'
-            }
+          {
+            type: 'value',
+            name: '故障概率(%)',
+            min: 0,
+            max: 100,
+            axisLine: { lineStyle: { color: '#666666' } },
+            axisLabel: { color: '#666666', formatter: '{value}%' },
+            splitLine: { show: false }
           }
-        },
+        ],
         tooltip: {
           trigger: 'axis',
+          confine: true,
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderColor: '#e0e0e0',
           borderWidth: 1,
-          textStyle: {
-            color: '#2c3e50'
-          },
+          textStyle: { color: '#2c3e50' },
           formatter: function(params) {
-            const dataIndex = params[0].dataIndex
-            const riskValue = riskDataForDevice.history[dataIndex]
+            const idx = Array.isArray(params) ? params[0]?.dataIndex : params?.dataIndex
+            const point = typeof idx === 'number' ? timeline[idx] : null
+            if (!point) return '暂无数据'
+            const time = formatTimestamp(point.ts)
+            const prob = point.faultProbability !== null && point.faultProbability !== undefined ? `${point.faultProbability}%` : '--'
+            const temp = point.temperature !== null && point.temperature !== undefined ? `${point.temperature} °C` : '--'
+            const metaParts = []
+            if (faultForecastMeta.value.intervalHours) {
+              metaParts.push(`间隔: ${faultForecastMeta.value.intervalHours}h`)
+            }
+            if (faultForecastMeta.value.horizonHours) {
+              metaParts.push(`跨度: ${faultForecastMeta.value.horizonHours}h`)
+            }
+            const metaText = metaParts.length > 0 ? `<div style="color:#666;font-size:12px;">${metaParts.join(' / ')}</div>` : ''
             return `
-              <div style="padding: 15px; min-width: 300px;">
-                <div style="border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 10px;">
-                  <div style="font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">${deviceInfo.value.deviceName}</div>
-                  <div style="font-size: 12px; color: #666;">设备ID: ${deviceInfo.value.deviceId}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-                  <div><strong>设备型号:</strong> ${deviceInfo.value.model}</div>
-                  <div><strong>供应商:</strong> ${deviceInfo.value.supplier}</div>
-                  <div><strong>安装位置:</strong> ${deviceInfo.value.location}</div>
-                  <div><strong>运行时长:</strong> ${deviceInfo.value.runningTime}</div>
-                </div>
-                <div style="border-top: 1px solid #e0e0e0; padding-top: 10px; margin-top: 10px;">
-                  <div style="font-weight: bold; color: #409EFF; margin-bottom: 5px;">故障风险数据 (Day ${dataIndex + 1})</div>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-                    <div><strong>历史风险评分:</strong> <span style="color: ${riskValue > 70 ? '#ff4444' : riskValue > 50 ? '#ffaa00' : '#00ff88'}">${riskValue}%</span></div>
-                    <div><strong>预测风险评分:</strong> <span style="color: ${riskDataForDevice.forecast[0] > 70 ? '#ff4444' : riskDataForDevice.forecast[0] > 50 ? '#ffaa00' : '#00ff88'}">${riskDataForDevice.forecast[0]}%</span></div>
-                  </div>
-                </div>
+              <div style="padding: 12px;">
+                <div style="font-weight: bold; margin-bottom: 6px;">${deviceInfo.value.deviceName || ''}</div>
+                <div style="color:#409EFF; margin-bottom:4px;">时间：${time}（${point.ts >= pivotTs ? '预测' : '历史'}）</div>
+                <div>温度：${temp}</div>
+                <div>故障概率：${prob}</div>
+                ${metaText}
               </div>
             `
           }
         },
         series: [
           {
-            name: '历史风险评分',
+            name: '温度',
             type: 'line',
-            data: riskDataForDevice.history,
+            data: tempData,
             smooth: true,
-            lineStyle: {
-              color: '#ffaa00',
-              width: 3
-            },
-            itemStyle: {
-              color: '#ffaa00'
-            },
-            markPoint: {
-              data: riskDataForDevice.history
-                .map((value, index) => ({ value: value, xAxis: index }))
-                .filter(item => item.value > 70)
-                .map(item => ({
-                  ...item,
-                  itemStyle: {
-                    color: '#ff4444'
-                  },
-                  symbol: 'triangle',
-                  symbolSize: 12
-                }))
-            }
+            connectNulls: false,
+            lineStyle: { color: '#409EFF', width: 3 },
+            itemStyle: { color: '#409EFF' },
+            yAxisIndex: 0
           },
           {
-            name: '预测趋势',
+            name: '故障概率',
             type: 'line',
-            data: [...riskDataForDevice.history, ...riskDataForDevice.forecast],
+            data: probData,
             smooth: true,
-            lineStyle: {
-              color: '#00aaff',
-              width: 2,
-              type: 'dashed'
-            },
-            itemStyle: {
-              color: '#00aaff'
-            },
-            areaStyle: {
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [
-                  { offset: 0, color: 'rgba(0, 170, 255, 0.3)' },
-                  { offset: 1, color: 'rgba(0, 170, 255, 0.1)' }
-                ]
-              }
-            }
-          },
-          {
-            name: '高风险区域',
-            type: 'line',
-            data: new Array(riskDataForDevice.history.length).fill(70),
-            lineStyle: {
-              color: '#ff4444',
-              width: 2,
-              type: 'dashed'
-            },
-            itemStyle: {
-              color: 'transparent'
-            },
-            symbol: 'none',
-            markArea: {
+            connectNulls: true,
+            lineStyle: { color: '#FF6B6B', width: 3 },
+            itemStyle: { color: '#FF6B6B' },
+            yAxisIndex: 1,
+            markArea: xData.length > 1 ? {
+              silent: true,
               data: [
                 [
-                  { yAxis: 70 },
-                  { yAxis: 100 }
+                  { name: '历史区间', xAxis: xData[0], itemStyle: { color: 'rgba(64,158,255,0.06)' } },
+                  { xAxis: pivotLabel }
+                ],
+                [
+                  { name: '预测区间', xAxis: pivotLabel, itemStyle: { color: 'rgba(255,107,107,0.06)' } },
+                  { xAxis: xData[xData.length - 1] }
                 ]
-              ],
-              itemStyle: {
-                color: 'rgba(255, 68, 68, 0.1)'
-              }
+              ]
+            } : undefined,
+            markLine: {
+              silent: true,
+              lineStyle: { type: 'dashed', color: '#999' },
+              label: { formatter: '当前预测点', color: '#333', position: 'insideEndTop' },
+              data: [{ xAxis: pivotLabel }]
             }
           }
         ]
       }
-      
+
       faultChartInstance.setOption(option)
-      
-      // 添加点击事件
-      faultChartInstance.on('click', (params) => {
-        if (params.seriesName === '历史风险评分') {
-          const dataIndex = params.dataIndex
-          const riskValue = riskDataForDevice.history[dataIndex]
-          selectedDevice.value = {
-            deviceId: deviceInfo.value.deviceId,
-            deviceName: deviceInfo.value.deviceName,
-            model: deviceInfo.value.model,
-            supplier: deviceInfo.value.supplier,
-            location: deviceInfo.value.location,
-            riskScore: riskValue,
-            agingScore: deviceInfo.value.currentAgingScore
-          }
-          deviceDetailVisible.value = true
-        }
-      })
     }
 
-    // 更新数据
-    const updateData = () => {
+    // 更新数据：优先从后端历史预测结果接口获取，失败时回退到静态数据
+    const updateData = async (opts = {}) => {
+      const options = (opts && typeof opts === 'object' && 'target' in opts) ? {} : opts || {}
+      const silent = !!options.silent
+      const keepForecastOnEmpty = options.keepForecastOnEmpty !== false
+      const clearOnError = !!options.clearOnError
       if (!selectedDeviceId.value) {
         ElMessage.warning('请先选择设备')
         return
       }
-      
-      // 显示加载状态
-      const loading = ElMessage({
+
+      const deviceId = selectedDeviceId.value
+      const prevAgingForecast = Array.isArray(agingForecast.value) ? agingForecast.value : []
+      const prevFaultForecast = Array.isArray(faultForecast.value) ? faultForecast.value : []
+      const prevAgingScoreSummary = { ...(agingScoreSummary.value || {}) }
+      const prevFaultProbabilitySummary = { ...(faultProbabilitySummary.value || {}) }
+      const prevAgingContributors = Array.isArray(agingContributors.value) ? agingContributors.value : []
+      const prevFaultContributors = Array.isArray(faultContributors.value) ? faultContributors.value : []
+      const prevAgingForecastMeta = { ...(agingForecastMeta.value || {}) }
+      const prevFaultForecastMeta = { ...(faultForecastMeta.value || {}) }
+
+      const loading = silent ? null : ElMessage({
         message: '正在更新设备数据...',
         type: 'info',
         duration: 0
       })
-      
-      // 模拟数据加载延迟
-      setTimeout(() => {
-        const newData = getAgingData(selectedDeviceId.value)
-        deviceData.value = newData
+
+      try {
+        const paramsBase = {
+          deviceId,
+          // 后端对 size 有上限(200)。这里拉大窗口，避免最新一页里刚好没有 forecast 导致“刷新后预测消失”。
+          size: 200,
+          page: 1,
+          // 查询时间范围：从 2022-01-01 开始到当前时间
+          start: '2022-01-01T00:00:00Z',
+          // 允许包含未来预测点，避免被当前时间截断
+          end: '2099-12-31T23:59:59Z',
+          // 为了拿到最新的预测记录，这里按预测时间倒序返回（最新在前）
+          asc: false
+        }
+
+        const [agingHistory, faultHistory] = await Promise.all([
+          getPredictHistory({ ...paramsBase, type: 'AGING' }),
+          getPredictHistory({ ...paramsBase, type: 'FAULT' })
+        ])
+
+        // 兼容响应结构：auth 拦截器会在 code=200 时返回 res.data
+        const agingItemsRaw = (agingHistory && agingHistory.items) || (agingHistory && agingHistory.data && agingHistory.data.items) || []
+        const faultItemsRaw = (faultHistory && faultHistory.items) || (faultHistory && faultHistory.data && faultHistory.data.items) || []
+
+        const pickInnerResult = (item) => {
+          const resultWrapper = item?.result || {}
+          return (resultWrapper.result || resultWrapper.data || {})
+        }
+        const findWithForecast = (items) => items.find(it => {
+          const res = pickInnerResult(it)
+          return Array.isArray(res?.forecast) && res.forecast.length > 0
+        })
+        const pickPredictionTs = (item, inner) => item?.predictionTime || item?.prediction_time || inner?.prediction_time || inner?.predictionTime || inner?.prediction_time || item?.createdAt
+
+        // 将后端历史记录映射为图表可用的序列（老化）
+        const agingHistorySeries = agingItemsRaw
+          .map(item => {
+            const inner = pickInnerResult(item)
+            const tsRaw = pickPredictionTs(item, inner)
+            const ts = parseToTimestamp(tsRaw)
+            const healthIndex = roundNumber(inner?.health_index ?? inner?.healthIndex)
+            if (ts === null || healthIndex === null) return null
+            return {
+              timestamp: tsRaw,
+              healthIndex,
+              temperature: roundNumber(inner?.temperature)
+            }
+          })
+          .filter(Boolean)
+          .sort((a, b) => parseToTimestamp(a.timestamp) - parseToTimestamp(b.timestamp))
+        
+        // 对于2025.12.01之前的历史预测结果，如果没有温度数据，直接设置为25.4
+        const cutoffDate = new Date('2025-12-01T00:00:00Z').getTime()
+        agingHistorySeries.forEach(item => {
+          const ts = parseToTimestamp(item.timestamp)
+          if (ts !== null && ts < cutoffDate && (item.temperature === null || item.temperature === undefined)) {
+            item.temperature = roundNumber(25.4)
+          }
+        })
+        
+        apiAgingHistoryMap.value.set(deviceId, agingHistorySeries)
+        deviceData.value = agingHistorySeries.length > 0
+          ? agingHistorySeries.map(p => ({ time: p.timestamp, timestamp: p.timestamp, score: p.healthIndex, healthIndex: p.healthIndex, temperature: p.temperature }))
+          : []
+
+        // 将后端故障记录映射为概率序列（用于故障图历史段）
+        const faultHistorySeries = faultItemsRaw
+          .map(item => {
+            const inner = pickInnerResult(item)
+            const tsRaw = pickPredictionTs(item, inner)
+            const ts = parseToTimestamp(tsRaw)
+            const probRaw = inner?.prob_14d ?? inner?.prob_7d ?? inner?.prob_30d
+            const probability = normalizeProbabilityPercent(probRaw)
+            if (ts === null || probability === null) return null
+            return {
+              timestamp: tsRaw,
+              faultProbability: probability,
+              temperature: roundNumber(inner?.temperature)
+            }
+          })
+          .filter(Boolean)
+          .sort((a, b) => parseToTimestamp(a.timestamp) - parseToTimestamp(b.timestamp))
+        apiRiskHistoryMap.value.set(deviceId, { history: faultHistorySeries, forecast: [] })
+
+        const latestAgingItemWithForecast = findWithForecast(agingItemsRaw) || null
+        const latestFaultItemWithForecast = findWithForecast(faultItemsRaw) || null
+
+        const latestAgingSnapshotItem = agingItemsRaw[0] || null
+        const latestFaultSnapshotItem = faultItemsRaw[0] || null
+
+        if (latestAgingSnapshotItem) {
+          applyAgingSnapshot(pickInnerResult(latestAgingSnapshotItem))
+        }
+        if (latestFaultSnapshotItem) {
+          applyFaultSnapshot(pickInnerResult(latestFaultSnapshotItem))
+        }
+
+        if (latestAgingItemWithForecast) {
+          normalizeAgingForecast(pickInnerResult(latestAgingItemWithForecast))
+        } else if (!keepForecastOnEmpty || prevAgingForecast.length === 0) {
+          agingForecast.value = []
+          agingForecastMeta.value = { intervalHours: null, horizonHours: null }
+          agingScoreSummary.value = { score7d: null, score14d: null, score30d: null }
+          agingContributors.value = []
+        } else {
+          agingForecast.value = prevAgingForecast
+          agingForecastMeta.value = prevAgingForecastMeta
+          agingScoreSummary.value = prevAgingScoreSummary
+          agingContributors.value = prevAgingContributors
+          if (!silent) {
+            ElMessage.warning('未获取到新的老化预测序列，已保留上次预测结果')
+          }
+        }
+
+        if (latestFaultItemWithForecast) {
+          normalizeFaultForecast(pickInnerResult(latestFaultItemWithForecast))
+        } else if (!keepForecastOnEmpty || prevFaultForecast.length === 0) {
+          faultForecast.value = []
+          faultForecastMeta.value = { intervalHours: null, horizonHours: null }
+          faultProbabilitySummary.value = { prob7d: null, prob14d: null, prob30d: null }
+          faultContributors.value = []
+        } else {
+          faultForecast.value = prevFaultForecast
+          faultForecastMeta.value = prevFaultForecastMeta
+          faultProbabilitySummary.value = prevFaultProbabilitySummary
+          faultContributors.value = prevFaultContributors
+          if (!silent) {
+            ElMessage.warning('未获取到新的故障预测序列，已保留上次预测结果')
+          }
+        }
+
         updateDeviceCurrentStatus()
         updateAgingChart()
         updateFaultChart()
-        
-        loading.close()
-        ElMessage.success(`设备 ${deviceInfo.value.deviceName} 数据更新成功`)
-      }, 500)
+
+        if (loading) loading.close()
+        if (!silent) {
+          ElMessage.success(`设备 ${deviceInfo.value.deviceName} 数据更新成功`)
+        }
+      } catch (e) {
+        console.error('更新设备数据失败', e)
+        if (clearOnError) {
+          agingForecast.value = []
+          faultForecast.value = []
+          agingScoreSummary.value = { score7d: null, score14d: null, score30d: null }
+          faultProbabilitySummary.value = { prob7d: null, prob14d: null, prob30d: null }
+          deviceData.value = []
+          apiAgingHistoryMap.value.delete(deviceId)
+          apiRiskHistoryMap.value.delete(deviceId)
+          updateDeviceCurrentStatus()
+          updateAgingChart()
+          updateFaultChart()
+        }
+        if (loading) loading.close()
+        const baseMsg = e?.message || '更新设备数据失败'
+        ElMessage.error(clearOnError ? `${baseMsg}，已清空本地缓存` : baseMsg)
+      }
     }
     
-    // 触发AI预测
-    const triggerAIPrediction = () => {
+    // 触发AI预测（调用后端AI接口）
+    const triggerAIPrediction = async () => {
       if (!selectedDeviceId.value) {
         ElMessage.warning('请先选择设备')
         return
       }
-      
-      if (deviceData.value.length === 0) {
-        ElMessage.warning('请先更新数据')
-        return
-      }
-      
+
       // 显示AI预测加载状态
       const loading = ElMessage({
         message: 'AI正在分析设备数据...',
         type: 'info',
         duration: 0
       })
-      
-      // 模拟AI预测延迟
-      setTimeout(() => {
-        showAIPrediction.value = true
-        const predictionData = generateAIPrediction(deviceData.value)
-        
-        // 生成AI预测提示
-        const lastAging = deviceData.value[deviceData.value.length - 1].score
-        const predictedAging = predictionData[predictionData.length - 1].aging_score
-        const deviceName = deviceInfo.value.deviceName
-        
-        if (predictedAging > 80) {
-          const daysToThreshold = Math.ceil((80 - lastAging) / ((predictedAging - lastAging) / 7))
-          aiPredictionTip.value = `设备${deviceName}预计在${daysToThreshold}天后达到老化阈值，建议提前维护`
-        } else {
-          aiPredictionTip.value = `设备${deviceName}老化趋势正常，建议继续监控`
+
+      try {
+        const deviceId = selectedDeviceId.value
+        // 只传必要参数，让后端根据默认策略选择历史窗口
+        const agingReq = {
+          deviceId,
+          historyLength: 336,
+          minimumHistorySize: 64
         }
-        
-        // 更新老化图表显示AI预测
-        updateAgingChartWithPrediction(predictionData)
-        
+
+        const faultReq = {
+          deviceId,
+          historyLength: 336,
+          minimumHistorySize: 64
+        }
+
+        const [agingResp, faultResp] = await Promise.all([
+          predictDeviceAging(agingReq),
+          predictDeviceFault(faultReq)
+        ])
+
+        showAIPrediction.value = true
+
+        const agingResult = agingResp && agingResp.result ? agingResp.result : null
+        const faultResult = faultResp && faultResp.result ? faultResp.result : null
+        const deviceName = deviceInfo.value.deviceName || deviceId
+
+        // 使用老化/故障预测结果更新折线与当前指标
+        if (agingResult) {
+          normalizeAgingForecast(agingResult)
+        } else {
+          agingForecast.value = []
+          agingForecastMeta.value = { intervalHours: null, horizonHours: null }
+          agingScoreSummary.value = { score7d: null, score14d: null, score30d: null }
+        }
+        if (faultResult) {
+          normalizeFaultForecast(faultResult)
+        } else {
+          faultForecast.value = []
+          faultForecastMeta.value = { intervalHours: null, horizonHours: null }
+          faultProbabilitySummary.value = { prob7d: null, prob14d: null, prob30d: null }
+        }
+        updateDeviceCurrentStatus()
+        updateAgingChart()
+        updateFaultChart()
+
+        // 生成AI预测提示文案
+        if (faultResult) {
+          const riskLevelRaw = faultResult.risk_level || 'UNKNOWN'
+          const riskLevel = typeof riskLevelRaw === 'string' ? riskLevelRaw.toUpperCase() : riskLevelRaw
+          // 概率 0.1279 -> 百分比 12.79（两位小数）
+          const prob7d = faultProbabilitySummary.value.prob7d
+          let explanation = faultResult.explanation || ''
+          explanation = explanation.replace(/prob_7d/g, '7天内')
+            .replace(/prob_14d/g, '14天内')
+            .replace(/prob_30d/g, '30天内')
+
+          if (riskLevel === 'HIGH') {
+            aiPredictionTip.value = `AI预测：设备${deviceName}未来7天故障风险较高${prob7d !== null ? `（约${prob7d}%）` : ''}，${explanation || '建议重点关注并安排检修计划。'}`
+          } else if (riskLevel === 'MEDIUM') {
+            aiPredictionTip.value = `AI预测：设备${deviceName}未来存在一定故障风险${prob7d !== null ? `（约${prob7d}%）` : ''}，${explanation || '建议加强监控并评估维护窗口。'}`
+          } else {
+            aiPredictionTip.value = `AI预测：设备${deviceName}整体风险水平不高，${explanation || '建议按计划巡检并持续监控。'}`
+          }
+        } else if (agingResult) {
+          aiPredictionTip.value = `AI预测：设备${deviceName}当前健康指数为 ${agingResult.health_index}，建议结合运行时长和告警情况综合评估维护计划。`
+        } else {
+          aiPredictionTip.value = `AI预测：暂未获得有效的预测结果，请稍后重试。`
+        }
+
         loading.close()
         ElMessage.success(`设备${deviceName} AI预测完成`)
-      }, 1000)
+      } catch (e) {
+        console.error('AI预测失败', e)
+        loading.close()
+        ElMessage.error(e.message || 'AI预测失败，请稍后重试')
+      }
     }
     
     // 更新老化图表（包含AI预测）
-    const updateAgingChartWithPrediction = (predictionData) => {
-      if (agingChartInstance) {
-        const allData = [...deviceData.value, ...predictionData]
-        
-        const option = {
-          xAxis: {
-            data: allData.map(item => item.time || item.timestamp)
-          },
-          series: [
-            {
-              data: allData.map(item => item.score || item.aging_score),
-              markPoint: {
-                data: allData
-                  .map((item, index) => ({ value: item.score || item.aging_score, xAxis: index }))
-                  .filter(item => item.value > 80)
-                  .map(item => ({
-                    ...item,
-                    itemStyle: {
-                      color: '#ff4444'
-                    },
-                    symbol: 'circle',
-                    symbolSize: 8
-                  }))
-              }
-            },
-            {
-              data: new Array(allData.length).fill(80)
-            },
-            {
-              name: 'AI预测',
-              type: 'line',
-              data: [
-                ...new Array(deviceData.value.length).fill(null),
-                ...predictionData.map(item => item.aging_score)
-              ],
-              lineStyle: {
-                color: '#9c27b0',
-                width: 2,
-                type: 'dashed'
-              },
-              itemStyle: {
-                color: '#9c27b0'
-              }
-            }
-          ]
-        }
-        
-        agingChartInstance.setOption(option)
-      }
+    const updateAgingChartWithPrediction = () => {
+      renderAgingChart()
     }
     
     // 更新老化图表
     const updateAgingChart = () => {
-      if (agingChartInstance) {
-        const agingData = deviceData.value
-        
-        const option = {
-          xAxis: {
-            data: agingData.map(item => item.timestamp)
-          },
-          series: [
-            {
-              data: agingData.map(item => item.aging_score),
-              markPoint: {
-                data: agingData
-                  .map((item, index) => ({ value: item.aging_score, xAxis: index }))
-                  .filter(item => item.value > 80)
-                  .map(item => ({
-                    ...item,
-                    itemStyle: {
-                      color: '#ff4444'
-                    },
-                    symbol: 'circle',
-                    symbolSize: 8
-                  }))
-              }
-            },
-            {
-              data: new Array(agingData.length).fill(80)
-            }
-          ]
-        }
-        
-        agingChartInstance.setOption(option)
-      }
+      renderAgingChart()
     }
 
     // 更新故障图表
     const updateFaultChart = () => {
-      if (faultChartInstance && selectedDeviceId.value) {
-        const riskDataForDevice = getRiskData(selectedDeviceId.value)
-        
-        const option = {
-          xAxis: {
-            data: [...Array(riskDataForDevice.history.length).keys()].map(i => `Day ${i + 1}`)
-          },
-          series: [
-            {
-              data: riskDataForDevice.history,
-              markPoint: {
-                data: riskDataForDevice.history
-                  .map((value, index) => ({ value: value, xAxis: index }))
-                  .filter(item => item.value > 70)
-                  .map(item => ({
-                    ...item,
-                    itemStyle: {
-                      color: '#ff4444'
-                    },
-                    symbol: 'triangle',
-                    symbolSize: 12
-                  }))
-              }
-            },
-            {
-              data: [...riskDataForDevice.history, ...riskDataForDevice.forecast]
-            },
-            {
-              data: new Array(riskDataForDevice.history.length).fill(70)
-            }
-          ]
-        }
-        
-        faultChartInstance.setOption(option)
-      }
+      renderFaultChart()
     }
     
     
@@ -1325,18 +1625,18 @@ export default {
       selectedDevice.value = null
     }
 
-    // 获取风险等级样式
+    // 获取风险等级样式（故障概率，数值越高风险越大）
     const getRiskLevelClass = (score) => {
       if (score >= 80) return 'risk-high'
       if (score >= 60) return 'risk-medium'
       return 'risk-low'
     }
 
-    // 获取老化等级样式
+    // 获取健康等级样式（health_index：数值越高越健康）
     const getAgingLevelClass = (score) => {
-      if (score >= 80) return 'aging-high'
-      if (score >= 60) return 'aging-medium'
-      return 'aging-low'
+      if (score >= 80) return 'aging-low'      // 健康良好（绿色）
+      if (score >= 60) return 'aging-medium'   // 一般/关注（黄色）
+      return 'aging-high'                      // 健康较差（红色）
     }
 
     // 窗口大小改变时重新调整图表
@@ -1426,6 +1726,10 @@ export default {
       showAIPrediction,
       aiPredictionTip,
       selectedDeviceId,
+      hasAgingForecast,
+      hasFaultForecast,
+      agingScoreSummary,
+      faultProbabilitySummary,
       deviceList,
       deviceInfo,
       aiSuggestions,
@@ -1437,7 +1741,8 @@ export default {
       exportReport,
       getRiskLevelClass,
       getAgingLevelClass,
-      getSuggestionType
+      getSuggestionType,
+      formatProbabilityDisplay
     }
   }
 }
@@ -1556,6 +1861,20 @@ export default {
   min-height: 300px;
 }
 
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px dashed #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  z-index: 1;
+}
+
 .chart-footer {
   margin-top: 10px;
   padding-top: 10px;
@@ -1566,6 +1885,39 @@ export default {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 20px;
+  justify-content: space-around;
+}
+
+.stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #909399;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'DIN Alternate', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 14px;
+  background-color: #e0e0e0;
 }
 
 .legend-item {
@@ -1582,32 +1934,16 @@ export default {
   border-radius: 2px;
 }
 
-.aging-line {
-  background-color: #00ff88;
+.temp-line {
+  background-color: #409EFF;
 }
 
-.threshold-line {
-  background-color: #ff4444;
-  border: 1px dashed #ff4444;
+.health-line {
+  background-color: #67C23A;
 }
 
-.warning-dot {
-  background-color: #ff4444;
-  border-radius: 50%;
-  width: 8px;
-  height: 8px;
-}
-
-.risk-line {
-  background-color: #ffaa00;
-}
-
-.predicted-line {
-  background-color: #00aaff;
-}
-
-.high-risk {
-  background-color: #ff4444;
+.fault-line {
+  background-color: #FF6B6B;
 }
 
 .ai-prediction {
@@ -1619,7 +1955,7 @@ export default {
 }
 
 .device-info-section {
-  margin-top: 20px;
+  margin-top: 50px;
 }
 
 .device-info-card {
@@ -1685,7 +2021,7 @@ export default {
   font-weight: bold;
 }
 
-/* 老化等级样式 */
+/* 健康等级样式（高=绿，中=黄，低=红） */
 .aging-high {
   color: #ff4444;
   font-weight: bold;

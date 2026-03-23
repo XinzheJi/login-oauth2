@@ -7,6 +7,7 @@ import com.system.login.mapper.UserMapper;
 import com.system.login.service.auth.AuthService;
 import com.system.login.service.security.JwtTokenService;
 import com.system.login.service.tenant.TenantService;
+import com.system.login.config.JwtConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,16 +28,19 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenService jwtTokenService;
     private final UserMapper userMapper;
     private final TenantService tenantService;
+    private final JwtConfig jwtConfig;
 
     @Autowired
     public AuthServiceImpl(AuthenticationManager authenticationManager,
                           JwtTokenService jwtTokenService,
                           UserMapper userMapper,
-                          TenantService tenantService) {
+                          TenantService tenantService,
+                          JwtConfig jwtConfig) {
         this.authenticationManager = authenticationManager;
         this.jwtTokenService = jwtTokenService;
         this.userMapper = userMapper;
         this.tenantService = tenantService;
+        this.jwtConfig = jwtConfig;
     }
     
     @Override
@@ -63,6 +67,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String jwt = jwtTokenService.generateToken(user, userDetails, businessTenantId);
+        long expiresIn = jwtConfig.getExpiration();
+        long expiresAt = System.currentTimeMillis() + expiresIn * 1000;
 
 //        System.out.println("JWT令牌: " + jwt);
         
@@ -74,6 +80,8 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .tenantId(user.getTenantId())
                 .loginMethod("local")
+                .expiresIn(expiresIn)
+                .expiresAt(expiresAt)
                 .build();
     }
 }
