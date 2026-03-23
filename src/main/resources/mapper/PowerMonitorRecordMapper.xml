@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.system.powermanagement.mapper.PowerMonitorRecordMapper">
+
+    <!-- 根据设备ID查询最新的监控记录 -->
+    <select id="selectLatestByDeviceIdAndMonitorName" resultType="com.system.powermanagement.domain.entity.PowerMonitorRecord">
+        SELECT
+            *
+        FROM
+            power_monitor_record
+        WHERE
+            device_id = #{deviceId}
+            AND monitor_name = #{monitorName}
+        ORDER BY
+            collect_time DESC
+        LIMIT 1
+    </select>
+
+    <!-- 统计不同区域的告警数量 -->
+    <select id="countAlarmByLocation" resultType="java.util.Map">
+        SELECT
+            pd.location,
+            COUNT(*) as alarmCount
+        FROM
+            power_monitor_record pmr
+        JOIN
+            power_device pd ON pmr.device_id = pd.id
+        WHERE
+            pmr.is_alarm = 1
+            <if test="startTime != null and startTime != ''">
+                AND pmr.collect_time >= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND pmr.collect_time &lt;= #{endTime}
+            </if>
+            <if test="tenantId != null">
+                AND pmr.tenant_id = #{tenantId}
+            </if>
+        GROUP BY
+            pd.location
+    </select>
+
+    <!-- 统计不同告警级别的数量 -->
+    <select id="countAlarmByLevel" resultType="java.util.Map">
+        SELECT
+            pmr.alarm_level as alarmLevel,
+            COUNT(*) as alarmCount
+        FROM
+            power_monitor_record pmr
+        WHERE
+            pmr.is_alarm = 1
+            <if test="startTime != null and startTime != ''">
+                AND pmr.collect_time >= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND pmr.collect_time &lt;= #{endTime}
+            </if>
+            <if test="tenantId != null">
+                AND pmr.tenant_id = #{tenantId}
+            </if>
+        GROUP BY
+            pmr.alarm_level
+    </select>
+
+</mapper> 

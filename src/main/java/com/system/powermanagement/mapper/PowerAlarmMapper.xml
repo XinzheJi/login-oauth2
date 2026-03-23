@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.system.powermanagement.mapper.PowerAlarmMapper">
+    
+    <!-- 告警分页查询，关联设备信息 -->
+    <select id="selectAlarmPage" resultType="com.system.powermanagement.domain.vo.PowerAlarmVO">
+        SELECT 
+            r.id,
+            d.device_id AS deviceId,
+            d.device_name AS deviceName,
+            d.ip_address AS ipAddress,
+            d.location,
+            r.monitor_name AS monitorName,
+            r.value,
+            r.threshold_upper AS thresholdUpper,
+            r.threshold_lower AS thresholdLower,
+            r.alarm_level AS alarmLevel,
+            r.alarm_desc AS alarmDesc,
+            r.collect_time AS collectTime,
+            r.is_processed AS isProcessed,
+            r.process_time AS processTime,
+            r.process_by AS processBy,
+            r.process_description AS processDescription,
+            r.process_method AS processMethod,
+            r.resolved,
+            r.tenant_id AS tenantId
+        FROM power_monitor_record r
+        LEFT JOIN power_device d ON r.device_id = d.id
+        <where>
+            r.is_alarm = 1
+            <if test="tenantId != null">
+                AND r.tenant_id = #{tenantId}
+            </if>
+            <if test="deviceId != null and deviceId != ''">
+                AND d.device_id = #{deviceId}
+            </if>
+            <if test="deviceName != null and deviceName != ''">
+                AND d.device_name LIKE CONCAT('%', #{deviceName}, '%')
+            </if>
+            <if test="ipAddress != null and ipAddress != ''">
+                AND d.ip_address LIKE CONCAT('%', #{ipAddress}, '%')
+            </if>
+            <if test="location != null and location != ''">
+                AND d.location LIKE CONCAT('%', #{location}, '%')
+            </if>
+            <if test="alarmLevel != null and alarmLevel != ''">
+                AND r.alarm_level = #{alarmLevel}
+            </if>
+            <if test="isProcessed != null">
+                AND r.is_processed = #{isProcessed}
+            </if>
+            <if test="alarmTimeStart != null and alarmTimeStart != ''">
+                AND r.collect_time &gt;= #{alarmTimeStart}
+            </if>
+            <if test="alarmTimeEnd != null and alarmTimeEnd != ''">
+                AND r.collect_time &lt;= #{alarmTimeEnd}
+            </if>
+            <if test="alarmType != null and alarmType != ''">
+                AND r.monitor_name = #{alarmType}
+            </if>
+        </where>
+        ORDER BY r.collect_time DESC
+    </select>
+    
+    <!-- 按告警级别统计 -->
+    <select id="countByAlarmLevel" resultType="java.util.Map">
+        SELECT 
+            alarm_level as alarmLevel, 
+            COUNT(*) as count
+        FROM power_monitor_record
+        <where>
+            is_alarm = 1
+            <if test="tenantId != null">
+                AND tenant_id = #{tenantId}
+            </if>
+            <if test="startTime != null and startTime != ''">
+                AND collect_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND collect_time &lt;= #{endTime}
+            </if>
+        </where>
+        GROUP BY alarm_level
+    </select>
+    
+    <!-- 按告警类型统计 -->
+    <select id="countByMonitorName" resultType="java.util.Map">
+        SELECT 
+            monitor_name as monitorName, 
+            COUNT(*) as count
+        FROM power_monitor_record
+        <where>
+            is_alarm = 1
+            <if test="tenantId != null">
+                AND tenant_id = #{tenantId}
+            </if>
+            <if test="startTime != null and startTime != ''">
+                AND collect_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND collect_time &lt;= #{endTime}
+            </if>
+        </where>
+        GROUP BY monitor_name
+    </select>
+    
+    <!-- 按区域统计 -->
+    <select id="countByLocation" resultType="java.util.Map">
+        SELECT 
+            d.location, 
+            COUNT(*) as count
+        FROM power_monitor_record r
+        LEFT JOIN power_device d ON r.device_id = d.id
+        <where>
+            r.is_alarm = 1
+            <if test="tenantId != null">
+                AND r.tenant_id = #{tenantId}
+            </if>
+            <if test="startTime != null and startTime != ''">
+                AND r.collect_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND r.collect_time &lt;= #{endTime}
+            </if>
+        </where>
+        GROUP BY d.location
+    </select>
+    
+    <!-- 按天统计告警趋势 -->
+    <select id="countAlarmTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(collect_time, '%Y-%m-%d') as date,
+            COUNT(*) as count
+        FROM power_monitor_record
+        <where>
+            is_alarm = 1
+            <if test="tenantId != null">
+                AND tenant_id = #{tenantId}
+            </if>
+            <if test="startTime != null and startTime != ''">
+                AND collect_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND collect_time &lt;= #{endTime}
+            </if>
+        </where>
+        GROUP BY DATE_FORMAT(collect_time, '%Y-%m-%d')
+        ORDER BY date
+    </select>
+    
+    <!-- 统计总告警数、未处理告警数和已解决告警数 -->
+    <select id="countAlarmSummary" resultType="java.util.Map">
+        SELECT
+            SUM(CASE WHEN is_alarm = 1 THEN 1 ELSE 0 END) as totalAlarms,
+            SUM(CASE WHEN is_alarm = 1 AND is_processed = 0 THEN 1 ELSE 0 END) as unprocessedAlarms,
+            SUM(CASE WHEN is_alarm = 1 AND resolved = 1 THEN 1 ELSE 0 END) as resolvedAlarms
+        FROM power_monitor_record
+        <where>
+            <if test="tenantId != null">
+                tenant_id = #{tenantId}
+            </if>
+            <if test="startTime != null and startTime != ''">
+                AND collect_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND collect_time &lt;= #{endTime}
+            </if>
+        </where>
+    </select>
+</mapper> 

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.system.powermanagement.mapper.PowerDeviceMapper">
+
+    <!-- 定义PowerDeviceVO的resultMap，确保deviceId正确映射 -->
+    <resultMap id="PowerDeviceVOResultMap" type="com.system.powermanagement.domain.vo.PowerDeviceVO">
+        <result property="deviceId" column="device_id"/>
+        <result property="deviceName" column="device_name"/>
+        <result property="ipAddress" column="ip_address"/>
+        <result property="location" column="location"/>
+        <result property="deviceType" column="device_type"/>
+        <result property="installDate" column="install_date"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="tenantId" column="tenant_id"/> <!-- 数据库中的租户主键 -->
+        <result property="tenantName" column="tenantName"/> <!-- 通过JOIN查询得到的租户名 -->
+    </resultMap>
+
+    <!-- 分页查询电源设备（包含租户名称） -->
+    <select id="selectPageWithTenant" resultMap="PowerDeviceVOResultMap">
+        SELECT
+            pd.id,             <!-- 数据库主键，如果VO中移除了，这里可以不选，但如果内部需要，则可选 -->
+            pd.device_id,      <!-- 业务ID -->
+            pd.device_name,
+            pd.ip_address,
+            pd.location,
+            pd.device_type,
+            pd.install_date,
+            pd.remark,
+            pd.create_time,
+            pd.update_time,
+            pd.tenant_id,      <!-- 租户主键 -->
+            t.tenant_name as tenantName
+        FROM
+            power_device pd
+        LEFT JOIN
+            tenant t ON pd.tenant_id = t.id
+        WHERE
+            1 = 1
+            <if test="deviceName != null and deviceName != ''">
+                AND pd.device_name LIKE CONCAT('%', #{deviceName}, '%')
+            </if>
+            <if test="ipAddress != null and ipAddress != ''">
+                AND pd.ip_address LIKE CONCAT('%', #{ipAddress}, '%')
+            </if>
+            <if test="location != null and location != ''">
+                AND pd.location LIKE CONCAT('%', #{location}, '%')
+            </if>
+            <if test="deviceType != null and deviceType != ''">
+                AND pd.device_type = #{deviceType}
+            </if>
+            <if test="tenantId != null">
+                AND pd.tenant_id = #{tenantId}
+            </if>
+        ORDER BY
+            pd.create_time DESC
+    </select>
+
+</mapper> 

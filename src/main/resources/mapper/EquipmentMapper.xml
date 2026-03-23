@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.system.equipmenttypemanagement.mapper.EquipmentTypeMapper">
+    <!-- 分页查询设备台账列表，无查询条件 -->
+    <select id="selectDevicePage" resultType="com.system.equipmenttypemanagement.domain.entity.EquipmentType">
+        SELECT
+            *
+        FROM
+            pub_model
+        <where>
+            <if test="isOpticalBypass != null">
+                AND is_optical_bypass = #{isOpticalBypass}
+            </if>
+        </where>
+        order by id
+    </select>
+</mapper>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.system.powermanagement.mapper.PowerCapacityTestMapper">
+
+    <!-- 查询设备的历史核容记录 -->
+    <select id="selectHistoryByDeviceId" resultType="com.system.powermanagement.domain.entity.PowerCapacityTest">
+        SELECT
+            *
+        FROM
+            power_capacity_test
+        WHERE
+            device_id = #{deviceId}
+        ORDER BY
+            execute_time DESC
+    </select>
+
+    <!-- 查询最近的核容记录 -->
+    <select id="selectLatestByDeviceId" resultType="com.system.powermanagement.domain.entity.PowerCapacityTest">
+        SELECT
+            *
+        FROM
+            power_capacity_test
+        WHERE
+            device_id = #{deviceId}
+        ORDER BY
+            execute_time DESC
+        LIMIT 1
+    </select>
+
+</mapper> 
